@@ -2,23 +2,56 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from vgg import VGG16  # 从 vgg 模块中导入 VGG16 模型
-import read
+import math
 from torch.utils.data import DataLoader, TensorDataset
+from test import test_model
 
 
-def train_vgg16(train_loader, num_epochs=10):
+def train_vgg16(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
+    '''
+    训练模型,默认选择VGG16作为被训练的模型
+    train_loader:训练集的dataloader实例
+    test_loader:测试集的dataloader实例
+    num_epochs:训练的epoch数
+    checkpoint_path:不为空时从checkpoint文件加载模型权重,在其基础上继续训练
+    '''
+    test_loss_list = []
     # 初始化模型
-    model = VGG16()  # 根据实际情况调整模型初始化方式
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    model = VGG16().to(device)  # 根据实际情况调整模型初始化方式
 
+    if checkpoint_path != None:
+        checkpoint = torch.load(checkpoint_path)
+        total_epoch = checkpoint['epochs']
+        print(f"loading checkpoint [{checkpoint_path}] successed!")
+        model.load_state_dict(checkpoint['model_state_dict'])
+        print(f"loading state_dict successed!")
+        print(f"checkpoint info: \niter = {checkpoint['iters']}, epoch = {checkpoint['epochs']}")
+
+    print('model initialized on', device)
+    # is_nan = False
     # 定义损失函数和优化器
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-
-    # 训练循环
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    # optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    train_data_len = len(train_data) // batch_size
     for epoch in range(num_epochs):
+        print("training...")
+
+        model.train()
+        print(f"current epoch: {epoch}")
         running_loss = 0.0
+
+        # 1.训练
         for i, data in enumerate(train_loader, 0):
-            inputs, labels = data
+            # data.keys() = ['skeleton', 'image']
+
+            labels, inputs = data.values()
+
+            # 将输入和标签移动到GPU上
+            inputs = inputs.to(device)
+            labels = labels.to(device)
 
             # 梯度清零
             optimizer.zero_grad()
@@ -33,88 +66,62 @@ def train_vgg16(train_loader, num_epochs=10):
 
             # 打印统计信息
             running_loss += loss.item()
-            if i % 100 == 99:  # 每 100 个小批次打印一次
-                print(f"[{epoch + 1}, {i + 1}] loss: {running_loss / 100:.3f}")
+
+            if i % 100 == 99:  # 每 100 个小批次打印一次, 判断是否保存, 集成停止功能
+                # 初始化min_loss
+                if i == 99 and epoch == 0:
+                    min_loss = running_loss
+
+                # 保存模型checkpoint
+                checkpoint = {
+                'model_state_dict': model.state_dict(),
+                # 'optimizer_state_dict': optimizer.state_dict(),
+                'iters': i,
+                'epochs': total_epoch + epoch, # 保存当前训练的 epoch 数
+                'loss_funtion' : 'MSELoss',
+                'optimizer' : 'Adam',
+                'loss' : loss.item(),
+                'net' : "vgg16",
+                # 可以保存其他超参数信息
+                }
+                torch.save(checkpoint, f'checkpoints/last.pth')
+                print(f"last checkpoint saved! 100 iter avg loss = {running_loss / 100:.3f}")
+                
+
+                if running_loss <= min_loss:
+                    min_loss = running_loss
+                    torch.save(checkpoint, f'checkpoints/best_epoch{epoch}.pth')
+                    print(f"best checkpoint saved! 100 iter avg loss = {min_loss / 100:.3f}")
+
+
+                print(f"[epoch {epoch}, iter {i}/{train_data_len}] loss: {running_loss / 100:.3f}")
                 running_loss = 0.0
 
+        # 2.测试
+        test_loss = test_model(model=model,epoch=epoch,test_loader=test_loader,device=device,criterion=criterion)
+        test_loss_list.append(test_loss)
+
     print("训练完成")
-
-
-
-
-
-
-
-
+    for i,los in enumerate(test_loss_list):
+        print(f"epoch {i}, test loss = {los}")
 
 # 用法示例
 if __name__ == "__main__":
-    import os
-    import cv2  # 用于读取图像文件
-    import scipy.io  # 用于读取.mat文件
 
-    # # 定义文件夹路径
-    # folder_path = r'dataset\test\test_roll0_f_lay_set14_1500'
+    from load_dataset import SkeletonDataset
+    
+    train_data = SkeletonDataset(r'dataset\train',True)
+    test_data = SkeletonDataset(r'dataset\test',True)
+    # for i in range(dataset.__len__()):
+    #     sample = dataset[i]
 
-    # # 初始化 X 和 Y 列表
-    # X = []  # 用于存储图像数据
-    # y = []  # 用于存储.mat文件数据
+    #     print(i, sample['skeleton'], sample['image'])
+    #     if i >= 4:
+    #         break
 
-    # # 遍历文件夹中的文件
-    # for filename in os.listdir(folder_path):
-    #     file_path = os.path.join(folder_path, filename)
-        
-    #     # 检查文件类型并处理
-    #     if filename.endswith('.png'):
-    #         # 读取图像文件并将其添加到 X 列表
-    #         image = read.load_png(file_path)
-    #         X.append(image)
-    #     elif filename.endswith('.mat'):
-    #         # 读取.mat文件并将其添加到 Y 列表
-    #         mat_data = read.load_mat
-    #         y.append(mat_data)
-    #     else:
-    #         # 可以根据需要处理其他类型的文件
-    #         pass
+    batch_size = 8
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    # # 现在，X 列表包含了所有图像数据，Y 列表包含了所有.mat文件数据
 
-        
-    #     # # 假设您有图像数据 (X) 和对应的标签 (y)，这里假设它们都是 PyTorch Tensor
-    #     # X = torch.randn(100, 3, 224, 224)  # 100 个图像，每个图像的大小为 3x224x224
-    #     # y = torch.randint(0, 10, (100,))  # 100 个标签，假设有 10 个类别
-
-    # # 创建一个数据集对象
-    # X = torch.stack([torch.tensor(image) for image in X])
-    # y = [torch.tensor(data) for data in y]
-    # 定义文件夹路径
-    folder_path = r'dataset\test\test_roll0_f_lay_set14_1500'
-
-    # 初始化 X 和 Y 列表
-    X = []  # 用于存储图像数据
-    Y = []  # 用于存储.mat文件数据
-
-    # 遍历文件夹中的文件
-    for filename in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, filename)
-        
-        # 检查文件类型并处理
-        if filename.endswith('.png'):
-            # 读取图像文件并将其添加到 X 列表
-            image = cv2.imread(file_path)
-            if image is not None:
-                X.append(image)
-        elif filename.endswith('.mat'):
-            # 读取.mat文件并将其添加到 Y 列表
-            mat_data = scipy.io.loadmat(file_path)
-            Y.append(mat_data)
-        else:
-            # 可以根据需要处理其他类型的文件
-            pass
-    dataset = TensorDataset(X, Y)
-
-    # 创建一个数据加载器
-    batch_size = 32  # 每个小批次的大小
-    shuffle = True  # 是否随机打乱数据
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-    train_vgg16(data_loader, num_epochs=10)
+    train_vgg16(train_loader = test_loader, test_loader = test_loader, num_epochs=100, checkpoint_path = r'checkpoints\last.pth')

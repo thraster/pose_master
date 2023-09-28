@@ -35,8 +35,9 @@ class VGG16(nn.Module):
         x = self.classifier(x)
         return x
 
-# # 创建VGG16模型
-# vgg16 = VGG16()
+if __name__ == "__main__":
+    # 创建VGG16模型
+    vgg16 = VGG16()
 
-# # 打印模型结构
-# print(vgg16)
+    # 打印模型结构
+    print(vgg16)
