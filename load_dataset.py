@@ -53,7 +53,7 @@ class SkeletonDataset(Dataset):
         # 归一化
         data['image'] = cv2.normalize(data['image'], None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
 
-        data['image'] = torch.tensor(data['image'], dtype=torch.uint8) 
+        data['image'] = torch.tensor(data['image'], dtype=torch.float32) 
 
         data['image'] = data['image'].unsqueeze(0)
         
