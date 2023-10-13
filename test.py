@@ -51,19 +51,21 @@ def test_model(model, epoch, test_loader, device, criterion):
             # correct += (predicted == labels).sum().item()
         # test_loss = 0
     # 输出测试结果
-    print(f"Test Loss: {test_loss / lenth:.4f}")
-    checkpoint = {
-                'model_state_dict': model.state_dict(),
-                # 'optimizer_state_dict': optimizer.state_dict(),
-                'epochs': epoch, # 保存当前训练的 epoch 数
-                'loss_funtion' : 'MSELoss',
-                'optimizer' : 'Adam',
-                'test_loss' : test_loss / lenth,
-                'net' : "vgg16",
-                # 可以保存其他超参数信息
-                }
-    torch.save(checkpoint, f'checkpoints/checkpoint_epoch{epoch}.pth')
-    print(f"epoch {epoch} checkpoint saved!")
+    print(f"Test Loss: {test_loss / lenth}")
+
+    # checkpoint = {
+    #             'model_state_dict': model.state_dict(),
+    #             # 'optimizer_state_dict': optimizer.state_dict(),
+    #             'epochs': epoch, # 保存当前训练的 epoch 数
+    #             'loss_funtion' : 'MSELoss',
+    #             'optimizer' : 'Adam',
+    #             'test_loss' : test_loss / lenth,
+    #             'net' : "vgg16",
+    #             # 可以保存其他超参数信息
+    #             }
+    # torch.save(checkpoint, f'checkpoints/checkpoint_epoch{epoch}.pth')
+    # print(f"epoch {epoch} checkpoint saved!")
+
     return test_loss / lenth
     # accuracy = 100 * correct / total
     # print(f"Test Accuracy: {accuracy:.2f}%")

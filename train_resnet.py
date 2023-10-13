@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from vgg import VGG16  # 从 vgg 模块中导入 VGG16 模型
+from resnet import resnet18  # 从 vgg 模块中导入 VGG16 模型
 import math
 from torch.utils.data import DataLoader, TensorDataset
 from test import test_model
@@ -19,7 +19,7 @@ def train_vgg16(train_loader, test_loader, num_epochs=10, checkpoint_path = None
     # 初始化模型
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    model = VGG16().to(device)  # 根据实际情况调整模型初始化方式
+    model = resnet18().to(device)  # 根据实际情况调整模型初始化方式
 
     if checkpoint_path != None:
         checkpoint = torch.load(checkpoint_path)
@@ -28,6 +28,9 @@ def train_vgg16(train_loader, test_loader, num_epochs=10, checkpoint_path = None
         model.load_state_dict(checkpoint['model_state_dict'])
         print(f"loading state_dict successed!")
         print(f"checkpoint info: epoch = {checkpoint['epochs']}")
+    else:
+        total_epoch = 0
+
 
     print('model initialized on', device)
     # is_nan = False
@@ -112,7 +115,7 @@ def train_vgg16(train_loader, test_loader, num_epochs=10, checkpoint_path = None
         'net' : "vgg16",
         # 可以保存其他超参数信息
         }
-        torch.save(checkpoint, f'checkpoints/last.pth')
+        torch.save(checkpoint, f'checkpoints/resnet_last.pth')
         print(f"last checkpoint saved! test loss = {test_loss}")
 
         if epoch == 0:
@@ -121,7 +124,7 @@ def train_vgg16(train_loader, test_loader, num_epochs=10, checkpoint_path = None
         elif test_loss < min_loss:
             flag = 0
             min_loss = test_loss
-            torch.save(checkpoint, f'checkpoints/best.pth')
+            torch.save(checkpoint, f'checkpoints/resnet_best.pth')
             print(f"best checkpoint saved! = {min_loss}")
 
         # 如果连续5个epoch test loss没有再下降，停止训练
@@ -153,5 +156,5 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    train_vgg16(train_loader = test_loader, test_loader = test_loader, num_epochs=200, checkpoint_path = r'checkpoints\checkpoint_epoch44.pth')
+    train_vgg16(train_loader = test_loader, test_loader = test_loader, num_epochs=200)
 
