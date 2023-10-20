@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from test import test_model
 
 
-def train_vgg16(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
+def train_resnet(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
     '''
     训练模型,默认选择VGG16作为被训练的模型
     train_loader:训练集的dataloader实例
@@ -156,5 +156,5 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    train_vgg16(train_loader = test_loader, test_loader = test_loader, num_epochs=200)
+    train_resnet(train_loader = test_loader, test_loader = test_loader, num_epochs=200)
 
