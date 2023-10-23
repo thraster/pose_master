@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from mobilenet import MobileNet # 从 vgg 模块中导入 VGG16 模型
+from models.mobilenet import MobileNet # 从 vgg 模块中导入 VGG16 模型
 import math
 from torch.utils.data import DataLoader, TensorDataset
 from test import test_model
@@ -112,10 +112,10 @@ def train_mbn(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
         'loss_funtion' : 'MSELoss',
         'optimizer' : 'Adam',
         'loss' : test_loss,
-        'net' : "vgg16",
+        'net' : "mobilenetv2",
         # 可以保存其他超参数信息
         }
-        torch.save(checkpoint, f'checkpoints/resnet_last.pth')
+        torch.save(checkpoint, f'checkpoints/last_mobile.pth')
         print(f"last checkpoint saved! test loss = {test_loss}")
 
         if epoch == 0:
@@ -124,8 +124,11 @@ def train_mbn(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
         elif test_loss < min_loss:
             flag = 0
             min_loss = test_loss
-            torch.save(checkpoint, f'checkpoints/resnet_best.pth')
+            torch.save(checkpoint, f'checkpoints/best_mobile.pth')
             print(f"best checkpoint saved! = {min_loss}")
+
+        elif epoch%50 == 0:
+            torch.save(checkpoint, f'checkpoints/mobile_epoch{epoch}.pth')
 
         # 如果连续5个epoch test loss没有再下降，停止训练
         elif test_loss >= min_loss:

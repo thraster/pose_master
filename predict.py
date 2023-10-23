@@ -5,7 +5,7 @@ from PIL import Image
 import cv2
 import numpy as np
 
-def predict_vgg16(img_path = 'predict_folder', checkpoint_path = None, ):
+def predict(model,img_path = 'predict_folder', checkpoint_path = None, ):
     """
     加载预训练模型参数并使用模型进行预测。
 
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     # 调用函数进行预测
     # predictions = 
     
-    output = predict_vgg16(checkpoint_path = model_path)
+    output = predict(checkpoint_path = model_path)
 
     
     # 打印预测结果

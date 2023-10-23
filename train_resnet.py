@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from resnet import resnet18  # 从 vgg 模块中导入 VGG16 模型
+from models.resnet import resnet18  # 从 vgg 模块中导入 VGG16 模型
 import math
 from torch.utils.data import DataLoader, TensorDataset
 from test import test_model
@@ -35,7 +35,7 @@ def train_resnet(train_loader, test_loader, num_epochs=10, checkpoint_path = Non
     print('model initialized on', device)
     # is_nan = False
     # 定义损失函数和优化器
-    criterion = nn.MSELoss()
+    criterion = nn.MSELoss() # MSELoss = (1/n) * Σ(yᵢ - ȳ)²
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     # optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     train_data_len = len(train_data) // batch_size
@@ -112,10 +112,10 @@ def train_resnet(train_loader, test_loader, num_epochs=10, checkpoint_path = Non
         'loss_funtion' : 'MSELoss',
         'optimizer' : 'Adam',
         'loss' : test_loss,
-        'net' : "vgg16",
+        'net' : "resnet",
         # 可以保存其他超参数信息
         }
-        torch.save(checkpoint, f'checkpoints/resnet_last.pth')
+        torch.save(checkpoint, f'checkpoints/last_resnet.pth')
         print(f"last checkpoint saved! test loss = {test_loss}")
 
         if epoch == 0:
@@ -124,8 +124,11 @@ def train_resnet(train_loader, test_loader, num_epochs=10, checkpoint_path = Non
         elif test_loss < min_loss:
             flag = 0
             min_loss = test_loss
-            torch.save(checkpoint, f'checkpoints/resnet_best.pth')
+            torch.save(checkpoint, f'checkpoints/best_resnet.pth')
             print(f"best checkpoint saved! = {min_loss}")
+
+        elif epoch%50 == 0:
+            torch.save(checkpoint, f'checkpoints/resnet_epoch{epoch}.pth')
 
         # 如果连续5个epoch test loss没有再下降，停止训练
         elif test_loss >= min_loss:
