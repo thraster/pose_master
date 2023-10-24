@@ -16,6 +16,7 @@ class SkeletonDataset(Dataset):
         file_list = []
         for root, _, files in os.walk(self.root_dir):
             for file in files:
+                
                 if file.endswith('.mat') or file.endswith('.png'):
                     file_list.append(os.path.join(root, file))
         return file_list
@@ -27,17 +28,25 @@ class SkeletonDataset(Dataset):
         mat_file_path = self.file_list[idx * 2]
         png_file_path = self.file_list[idx * 2 + 1]
 
+        # 确定性别
+        if '_f_' in self.file_list[idx * 2]:
+            gender = 'female'
+        elif '_m_' in self.file_list[idx * 2]:
+            gender = 'male'
+        
         # 使用 scipy.io 加载 .mat 文件
         mat_data = scipy.io.loadmat(mat_file_path)  # 根据实际数据结构进行调整
 
         # 使用 PIL 加载 .png 文件
         png_image = Image.open(png_file_path)
         png_image = np.array(png_image)  # 将图像转换为 NumPy 数组
-
+        
+        
         # 返回数据和标签（这里只是示例，你需要根据实际数据结构来定义）
         data = {
             'skeleton': mat_data['3D_skeleton_annotation'],
             'image': png_image,
+            'gender': gender,
         }
 
         if self.transform:
@@ -81,8 +90,10 @@ if __name__ == "__main__":
         # 获取批次的数据和标签
         skeleton = batch['skeleton']
         image = batch['image']
+        gender = batch['gender']
         print(skeleton.shape)
         print(image.shape)
+        print(gender)
 
         for image_tensor in batch['image']:
             # 将张量从GPU移动到CPU（如果在GPU上）
