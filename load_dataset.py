@@ -30,9 +30,9 @@ class SkeletonDataset(Dataset):
 
         # 确定性别
         if '_f_' in self.file_list[idx * 2]:
-            gender = 'female'
+            gender = 0
         elif '_m_' in self.file_list[idx * 2]:
-            gender = 'male'
+            gender = 1
         
         # 使用 scipy.io 加载 .mat 文件
         mat_data = scipy.io.loadmat(mat_file_path)  # 根据实际数据结构进行调整
@@ -90,29 +90,29 @@ if __name__ == "__main__":
         # 获取批次的数据和标签
         skeleton = batch['skeleton']
         image = batch['image']
-        gender = batch['gender']
+        gender = batch['gender'] 
         print(skeleton.shape)
         print(image.shape)
         print(gender)
 
-        for image_tensor in batch['image']:
-            # 将张量从GPU移动到CPU（如果在GPU上）
-            image_tensor_cpu = image_tensor.cpu()
+        # for image_tensor in batch['image']:
+        #     # 将张量从GPU移动到CPU（如果在GPU上）
+        #     image_tensor_cpu = image_tensor.cpu()
 
-            # 将PyTorch张量转换为NumPy数组
-            image_array = image_tensor_cpu.numpy()
+        #     # 将PyTorch张量转换为NumPy数组
+        #     image_array = image_tensor_cpu.numpy()
 
-            # 将NumPy数组转换为OpenCV格式的图像（灰度或彩色）
-            if image_array.shape[0] == 1:
-                image_array = image_array.squeeze()  # 移除单通道的维度
-                image = cv2.cvtColor(image_array, cv2.COLOR_GRAY2BGR)  # 转为彩色图像
-            else:
-                image = cv2.cvtColor(image_array.transpose(1, 2, 0), cv2.COLOR_RGB2BGR)  # 转换通道顺序
+        #     # 将NumPy数组转换为OpenCV格式的图像（灰度或彩色）
+        #     if image_array.shape[0] == 1:
+        #         image_array = image_array.squeeze()  # 移除单通道的维度
+        #         image = cv2.cvtColor(image_array, cv2.COLOR_GRAY2BGR)  # 转为彩色图像
+        #     else:
+        #         image = cv2.cvtColor(image_array.transpose(1, 2, 0), cv2.COLOR_RGB2BGR)  # 转换通道顺序
 
 
-            # 显示图像
-            cv2.imshow('Image', image)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+        #     # 显示图像
+        #     cv2.imshow('Image', image)
+        #     cv2.waitKey(0)
+        #     cv2.destroyAllWindows()
 
         break

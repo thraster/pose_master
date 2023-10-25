@@ -5,6 +5,7 @@ import torch.nn as nn
 class VGG16(nn.Module):
     def __init__(self, num_classes=72):
         super(VGG16, self).__init__()
+        self.name = 'vgg16'
         self.features = self._make_layers()
         self.classifier = nn.Sequential(
             nn.Linear(512 * 7 * 7, 4096),
@@ -34,6 +35,10 @@ class VGG16(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return x
+
+def vgg16():
+    return VGG16()
+
 
 if __name__ == "__main__":
     # 创建VGG16模型

@@ -4,6 +4,7 @@ import torch.optim as optim
 from models.mobilenet import MobileNet # 从 vgg 模块中导入 VGG16 模型
 import math
 from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.tensorboard import SummaryWriter
 from test import test_model
 
 

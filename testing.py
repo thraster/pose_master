@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
-import vgg
 import load_dataset
-
 
 
 def test_model(model, epoch, test_loader, device, criterion):
@@ -25,11 +23,11 @@ def test_model(model, epoch, test_loader, device, criterion):
 
     test_loss = 0.0
     lenth = len(test_loader)
-
+    
     with torch.no_grad():
         
         for i, data in enumerate(test_loader):
-            labels, inputs = data.values()
+            labels, inputs, genders = data.values()
 
             # 将输入和标签移动到GPU上（如果可用）
             inputs = inputs.to(device)

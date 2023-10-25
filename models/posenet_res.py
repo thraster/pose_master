@@ -1,5 +1,11 @@
 import torch
 import torch.nn as nn
+import sys
+
+# 将模块所在的目录添加到模块搜索路径
+module_location = 'D:\workspace\python_ws\pose-master'  # 将此路径替换为实际的模块所在目录
+sys.path.append(module_location)
+from smpl.smpl_torch import SMPLModel
 
 # 定义ResNet基本块
 class BasicBlock(nn.Module):
@@ -38,7 +44,7 @@ class BasicBlock(nn.Module):
 
 # 定义ResNet主网络
 class ResNet(nn.Module):
-    def __init__(self, block, layers, num_classes=1000):
+    def __init__(self, block, layers, num_classes=10+72):
         super(ResNet, self).__init__()
         self.in_channels = 64
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -51,6 +57,11 @@ class ResNet(nn.Module):
         self.layer4 = self.make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.name = 'resnet+smpl'
+
+        # 初始化对应性别的SMPL模型
+        self.smpl_f = SMPLModel(device='cuda',model_path=r"smpl\basicModel_f_lbs_10_207_0_v1.0.0.pkl")
+        self.smpl_m = SMPLModel(device='cuda',model_path=r"smpl\basicmodel_m_lbs_10_207_0_v1.0.0.pkl")
 
     def make_layer(self, block, out_channels, blocks, stride=1):
         layers = []
@@ -60,7 +71,10 @@ class ResNet(nn.Module):
             layers.append(block(self.in_channels, out_channels))
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, genders):
+        # print(genders[0])
+        meshs = []
+        joints = []
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -73,20 +87,41 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        x = self.fc(x).double()
+        for i, batch in enumerate(x):
+            # print(batch.shape)
+            # print(i)
+            if genders[i].int() == 0:
+                mesh, joint = self.smpl_f(betas = batch[:10], pose = batch[10:],trans = torch.tensor([0,0,0]).to("cuda:0"))
+                meshs.append(mesh)
+                joints.append(torch.reshape(joint,(1,72)))
 
-        return x
+            elif genders[i].int() == 1:
+                mesh, joint = self.smpl_m(betas = batch[:10], pose = batch[10:],trans = torch.tensor([0,0,0]).to("cuda:0"))
+                meshs.append(mesh)
+                joints.append(torch.reshape(joint,(1,72)))
+
+
+        meshs = torch.cat(meshs, dim = 0)
+        joints = torch.cat(joints, dim = 0)
+        # print(joints.double())
+        # print(joints.shape)
+
+        return joints
 
 
 
-def resnet18(num_classes=72 ):#默认直接预测出24×3的关节点位置
+def posenet(num_classes=10+72):#默认直接预测出24×3的关节点位置
+
     return ResNet(BasicBlock, [2, 2, 2, 2], num_classes)
+
+
 
 if __name__ == "__mian__":
 # 创建ResNet-18模型
     # 创建ResNet模型实例
     
     model = resnet18(10+72) # 10个shape参数和 24*3的pose参数
-    
+    smpl = SMPLModel()
     # 打印模型结构
     print(model)

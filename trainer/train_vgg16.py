@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from models.mobilenet import MobileNet # 从 vgg 模块中导入 VGG16 模型
+from models.vgg import VGG16  # 从 vgg 模块中导入 VGG16 模型
 import math
 from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.tensorboard import SummaryWriter
 from test import test_model
 
 
-def train(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
+def train_vgg16(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
     '''
     训练模型,默认选择VGG16作为被训练的模型
     train_loader:训练集的dataloader实例
@@ -19,7 +20,7 @@ def train(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
     # 初始化模型
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    model = MobileNet().to(device)  # 根据实际情况调整模型初始化方式
+    model = VGG16().to(device)  # 根据实际情况调整模型初始化方式
 
     if checkpoint_path != None:
         checkpoint = torch.load(checkpoint_path)
@@ -30,7 +31,6 @@ def train(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
         print(f"checkpoint info: epoch = {checkpoint['epochs']}")
     else:
         total_epoch = 0
-
 
     print('model initialized on', device)
     # is_nan = False
@@ -50,7 +50,7 @@ def train(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
         for i, data in enumerate(train_loader, 0):
             # data.keys() = ['skeleton', 'image']
 
-            labels, inputs, gender = data.values()
+            labels, inputs = data.values()
 
             # 将输入和标签移动到GPU上
             inputs = inputs.to(device)
@@ -60,7 +60,7 @@ def train(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
             optimizer.zero_grad()
 
             # 前向传播
-            outputs = model(inputs, )
+            outputs = model(inputs)
             loss = criterion(outputs, labels)
 
             # 反向传播和优化
@@ -112,10 +112,10 @@ def train(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
         'loss_funtion' : 'MSELoss',
         'optimizer' : 'Adam',
         'loss' : test_loss,
-        'net' : "mobilenetv2",
+        'net' : "vgg16",
         # 可以保存其他超参数信息
         }
-        torch.save(checkpoint, f'checkpoints/last_mobile.pth')
+        torch.save(checkpoint, f'checkpoints/last_vgg16.pth')
         print(f"last checkpoint saved! test loss = {test_loss}")
 
         if epoch == 0:
@@ -124,11 +124,11 @@ def train(train_loader, test_loader, num_epochs=10, checkpoint_path = None):
         elif test_loss < min_loss:
             flag = 0
             min_loss = test_loss
-            torch.save(checkpoint, f'checkpoints/best_mobile.pth')
+            torch.save(checkpoint, f'checkpoints/best_vgg16.pth')
             print(f"best checkpoint saved! = {min_loss}")
 
         elif epoch%50 == 0:
-            torch.save(checkpoint, f'checkpoints/mobile_epoch{epoch}.pth')
+            torch.save(checkpoint, f'checkpoints/vgg16_epoch{epoch}.pth')
 
         # 如果连续5个epoch test loss没有再下降，停止训练
         elif test_loss >= min_loss:
@@ -159,5 +159,5 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    train(train_loader = test_loader, test_loader = test_loader, num_epochs=200)
+    train_vgg16(train_loader = test_loader, test_loader = test_loader, num_epochs=200, checkpoint_path = None)
 

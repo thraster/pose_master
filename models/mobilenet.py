@@ -30,6 +30,7 @@ class InvertedResidual(nn.Module):
 class MobileNetV2(nn.Module):
     def __init__(self, num_classes=1000, width_multiplier=1.0, input_size=224, inverted_residual_setting=None):
         super(MobileNetV2, self).__init__()
+        self.name = 'mobilenet'
         input_channel = 32
         last_channel = 1280
         if inverted_residual_setting is None:
@@ -69,7 +70,7 @@ class MobileNetV2(nn.Module):
         x = self.classifier(x)
         return x
 
-def MobileNet():
+def mobilenet():
     # 创建 MobileNetV2 模型
     return MobileNetV2(num_classes=72)
 
