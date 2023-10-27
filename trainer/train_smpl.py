@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 import datetime
 from torch.utils.tensorboard import SummaryWriter
-from testing import test_model
+from testing import test_model_smpl
 
 
 def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_path = None):
@@ -53,11 +53,12 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
     # is_nan = False
     # 定义损失函数和优化器
     criterion = nn.MSELoss() # MSELoss = (1/n) * Σ(yᵢ - ȳ)²
-    criterion =criterion.to(torch.float64)
-
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     # optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     train_data_len = len(train_data) // batch_size
+
+    print(f"训练数据量: {train_data_len * batch_size}条, 分为{train_data_len}个batchs")
+    print(f"batch size = {batch_size}")
 
     # 初始化tensorboard
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -74,49 +75,59 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         for i, data in enumerate(train_loader, 0):
             # data.keys() = ['skeleton', 'image']
 
-            labels, inputs, genders = data.values()
+            labels, inputs, genders, trans = data.values()
 
             # 将输入和标签移动到GPU上
             inputs = inputs.to(device)
             labels = labels.to(device)
             genders = genders.to(device)
+            trans = trans.to(device)
+
             # 梯度清零
             optimizer.zero_grad()
 
             # 前向传播
-            outputs = model(inputs, genders)
+            outputs = model(inputs, genders, trans)
             
-            print(outputs)
-            print(outputs.shape)
-            print(labels)
-            print(labels.shape)
-            loss = criterion(outputs, labels)
-            print(loss)
-            print(loss.shape)
-            # 反向传播和优化
-            #todo: expected dtype Double but got dtype Float
+            # print(outputs.dtype)
+            # print(outputs.shape)
+            # print(labels.dtype)
+            # print(labels.shape)
 
+
+            # 默认使用float32数据类型进行训练
+            loss = criterion(outputs, labels)
+
+            # print(loss)
+            # print(loss.shape)
+
+            # 反向传播和优化
+
+            # break
             loss.backward()
             optimizer.step()
 
             # 打印统计信息
             running_loss += loss.item()
 
-            if i % 1000 == 999:  # 每 1000 个小批次打印一次, 判断是否保存, 集成停止功能
-                print(f"[epoch {epoch}, iter {i}/{train_data_len/batch_size}] loss: {running_loss / 100:.3f}")
+            if i*batch_size % 1024 == 0:  # 每训练过1024条数据打印一次, 判断是否保存, 集成停止功能
+                print(f"[epoch {epoch}, iter {i}/{(train_data_len)}] loss: {running_loss / 1024 * batch_size}")
                 running_loss = 0.0
+
             # 添加标量 loss while training
             writer.add_scalar(tag="loss/train", scalar_value=loss,
                 global_step=epoch * train_data_len/batch_size + i)
 
         # 2.测试
-        test_loss = test_model(model=model,epoch=epoch,test_loader=test_loader,device=device,criterion=criterion)
+
+        test_loss = test_model_smpl(model=model,epoch=epoch,test_loader=test_loader,device=device,criterion=criterion)
+        
         # 添加标量 loss when test
         writer.add_scalar(tag="loss/test", scalar_value=loss,
                 global_step=epoch)
         test_loss_list.append(test_loss)
-        # 3.保存checkpoint
 
+        # 3.保存checkpoint
         checkpoint = {
         'model_state_dict': model.state_dict(),
         # 'optimizer_state_dict': optimizer.state_dict(),
@@ -138,17 +149,17 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
             min_loss = test_loss # 记录初值作为min_loss
 
         elif test_loss < min_loss:
-            flag = 0
+            # flag = 0
             min_loss = test_loss
             torch.save(checkpoint, f'checkpoints/best_{model.name}.pth')
             print(f"best checkpoint saved! = {min_loss}")
 
         # 如果连续5个epoch test loss没有再下降，停止训练
-        elif test_loss >= min_loss:
-            flag += 1
+        # elif test_loss >= min_loss:
+            # flag += 1
         
-        elif flag >= 5:
-            break
+        # elif flag >= 5:
+        #     break
 
     writer.close()
     print("训练完成")
@@ -169,9 +180,9 @@ if __name__ == "__main__":
     #     if i >= 4:
     #         break
 
-    batch_size = 16
+    batch_size = 64 # =64时,forward一次1.8s
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
-    train(train_loader = test_loader, test_loader = test_loader, num_epochs=200,model=posenet)
+    train(train_loader = test_loader, test_loader = test_loader, num_epochs=200, model=posenet)
 

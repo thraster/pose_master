@@ -47,6 +47,7 @@ class SkeletonDataset(Dataset):
             'skeleton': mat_data['3D_skeleton_annotation'],
             'image': png_image,
             'gender': gender,
+            'trans' : mat_data['trans'], # 根节点偏移量
         }
 
         if self.transform:
@@ -66,8 +67,13 @@ class SkeletonDataset(Dataset):
 
         data['image'] = data['image'].unsqueeze(0)
         
+        # skeleton
         data['skeleton'] = torch.tensor(data['skeleton'], dtype=torch.float32)
         data['skeleton'] = data['skeleton'].reshape(72)
+        
+        # trans
+        data['trans'] =  torch.tensor(data['trans'], dtype=torch.float32)
+        data['trans'] =  data['trans'].reshape(3)
         return data
 
 
@@ -91,9 +97,16 @@ if __name__ == "__main__":
         skeleton = batch['skeleton']
         image = batch['image']
         gender = batch['gender'] 
+        trans = batch['trans']
         print(skeleton.shape)
         print(image.shape)
-        print(gender)
+        print(gender.shape)
+        print(trans.shape)
+
+        print(skeleton.dtype)
+        print(image.dtype)
+        print(gender.dtype)
+        print(trans.dtype)
 
         # for image_tensor in batch['image']:
         #     # 将张量从GPU移动到CPU（如果在GPU上）

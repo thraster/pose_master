@@ -71,7 +71,7 @@ class ResNet(nn.Module):
             layers.append(block(self.in_channels, out_channels))
         return nn.Sequential(*layers)
 
-    def forward(self, x, genders):
+    def forward(self, x, genders, trans):
         # print(genders[0])
         meshs = []
         joints = []
@@ -87,20 +87,18 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        x = self.fc(x).double()
+        x = self.fc(x)
+
         for i, batch in enumerate(x):
             # print(batch.shape)
             # print(i)
             if genders[i].int() == 0:
-                mesh, joint = self.smpl_f(betas = batch[:10], pose = batch[10:],trans = torch.tensor([0,0,0]).to("cuda:0"))
-                meshs.append(mesh)
-                joints.append(torch.reshape(joint,(1,72)))
-
+                mesh, joint = self.smpl_f(betas = batch[:10], pose = batch[10:],trans = trans[i])
             elif genders[i].int() == 1:
-                mesh, joint = self.smpl_m(betas = batch[:10], pose = batch[10:],trans = torch.tensor([0,0,0]).to("cuda:0"))
-                meshs.append(mesh)
-                joints.append(torch.reshape(joint,(1,72)))
+                mesh, joint = self.smpl_m(betas = batch[:10], pose = batch[10:],trans = trans[i])
 
+            meshs.append(mesh)
+            joints.append(torch.reshape(joint,(1,72)))
 
         meshs = torch.cat(meshs, dim = 0)
         joints = torch.cat(joints, dim = 0)
@@ -117,11 +115,12 @@ def posenet(num_classes=10+72):#默认直接预测出24×3的关节点位置
 
 
 
-if __name__ == "__mian__":
+if __name__ == "__main__":
 # 创建ResNet-18模型
     # 创建ResNet模型实例
     
-    model = resnet18(10+72) # 10个shape参数和 24*3的pose参数
-    smpl = SMPLModel()
+    model = posenet(10+72) # 10个shape参数和 24*3的pose参数
+
+    # smpl = SMPLModel()
     # 打印模型结构
     print(model)

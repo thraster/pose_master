@@ -11,13 +11,16 @@ class SMPLModel(Module):
     super(SMPLModel, self).__init__()
     with open(model_path, 'rb') as f:
       params = pickle.load(f, encoding='latin1')
+
+    # 改为float32数据类型 resnet+smpl统一使用float32进行训练
+    
     self.J_regressor = torch.from_numpy(
       np.array(params['J_regressor'].todense())
-    ).type(torch.float64)
-    self.weights = torch.from_numpy(params['weights']).type(torch.float64)
-    self.posedirs = torch.from_numpy(params['posedirs']).type(torch.float64)
-    self.v_template = torch.from_numpy(params['v_template']).type(torch.float64)
-    self.shapedirs = torch.from_numpy(params['shapedirs'].r).type(torch.float64)
+    ).type(torch.float32)
+    self.weights = torch.from_numpy(params['weights']).type(torch.float32)
+    self.posedirs = torch.from_numpy(params['posedirs']).type(torch.float32)
+    self.v_template = torch.from_numpy(params['v_template']).type(torch.float32)
+    self.shapedirs = torch.from_numpy(params['shapedirs'].r).type(torch.float32)
     self.kintree_table = params['kintree_table']
     self.faces = params['f']
     self.device = device if device is not None else torch.device('cpu')
@@ -46,13 +49,13 @@ class SMPLModel(Module):
     theta_dim = theta.shape[0]
     r_hat = r / theta
     cos = torch.cos(theta)
-    z_stick = torch.zeros(theta_dim, dtype=torch.float64).to(r.device)
+    z_stick = torch.zeros(theta_dim, dtype=torch.float32).to(r.device)
     m = torch.stack(
       (z_stick, -r_hat[:, 0, 2], r_hat[:, 0, 1], r_hat[:, 0, 2], z_stick,
        -r_hat[:, 0, 0], -r_hat[:, 0, 1], r_hat[:, 0, 0], z_stick), dim=1)
     m = torch.reshape(m, (-1, 3, 3))
-    i_cube = (torch.eye(3, dtype=torch.float64).unsqueeze(dim=0) \
-             + torch.zeros((theta_dim, 3, 3), dtype=torch.float64)).to(r.device)
+    i_cube = (torch.eye(3, dtype=torch.float32).unsqueeze(dim=0) \
+             + torch.zeros((theta_dim, 3, 3), dtype=torch.float32)).to(r.device)
     A = r_hat.permute(0, 2, 1)
     dot = torch.matmul(A, r_hat)
     R = cos * i_cube + (1 - cos) * dot + torch.sin(theta) * m
@@ -72,7 +75,7 @@ class SMPLModel(Module):
     Tensor after appending of shape [4,4]
 
     """
-    ones = torch.tensor([[0.0, 0.0, 0.0, 1.0]], dtype=torch.float64).to(x.device)
+    ones = torch.tensor([[0.0, 0.0, 0.0, 1.0]], dtype=torch.float32).to(x.device)
     ret = torch.cat((x, ones), dim=0)
     return ret
 
@@ -90,7 +93,7 @@ class SMPLModel(Module):
     A tensor of shape [batch_size, 4, 4] after appending.
 
     """
-    zeros43 = torch.zeros((x.shape[0], 4, 3), dtype=torch.float64).to(x.device)
+    zeros43 = torch.zeros((x.shape[0], 4, 3), dtype=torch.float32).to(x.device)
     ret = torch.cat((zeros43, x), dim=2)
     return ret
 
@@ -137,8 +140,8 @@ class SMPLModel(Module):
       v_posed = v_shaped
     else:
       R_cube = R_cube_big[1:]
-      I_cube = (torch.eye(3, dtype=torch.float64).unsqueeze(dim=0) + \
-        torch.zeros((R_cube.shape[0], 3, 3), dtype=torch.float64)).to(self.device)
+      I_cube = (torch.eye(3, dtype=torch.float32).unsqueeze(dim=0) + \
+        torch.zeros((R_cube.shape[0], 3, 3), dtype=torch.float32)).to(self.device)
       lrotmin = torch.reshape(R_cube - I_cube, (-1, 1)).squeeze()
       v_posed = v_shaped + torch.tensordot(self.posedirs, lrotmin, dims=([2], [0]))
 
@@ -165,14 +168,14 @@ class SMPLModel(Module):
         torch.matmul(
           stacked,
           torch.reshape(
-            torch.cat((J, torch.zeros((24, 1), dtype=torch.float64).to(self.device)), dim=1),
+            torch.cat((J, torch.zeros((24, 1), dtype=torch.float32).to(self.device)), dim=1),
             (24, 4, 1)
           )
         )
       )
     T = torch.tensordot(self.weights, results, dims=([1], [0]))
     rest_shape_h = torch.cat(
-      (v_posed, torch.ones((v_posed.shape[0], 1), dtype=torch.float64).to(self.device)), dim=1
+      (v_posed, torch.ones((v_posed.shape[0], 1), dtype=torch.float32).to(self.device)), dim=1
     )
     v = torch.matmul(T, torch.reshape(rest_shape_h, (-1, 4, 1)))
     v = torch.reshape(v, (-1, 4))[:, :3]
@@ -196,10 +199,10 @@ def test_gpu(gpu_id=[0]):
 
   np.random.seed(9608)
   pose = torch.from_numpy((np.random.rand(pose_size) - 0.5) * 0.4)\
-          .type(torch.float64).to(device)
+          .type(torch.float32).to(device)
   betas = torch.from_numpy((np.random.rand(beta_size) - 0.5) * 0.06) \
-          .type(torch.float64).to(device)
-  trans = torch.from_numpy(np.zeros(3)).type(torch.float64).to(device)
+          .type(torch.float32).to(device)
+  trans = torch.from_numpy(np.zeros(3)).type(torch.float32).to(device)
   outmesh_path = './smpl_torch.obj'
 
   model = SMPLModel(device=device)
