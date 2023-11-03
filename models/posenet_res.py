@@ -7,6 +7,9 @@ module_location = 'D:\workspace\python_ws\pose-master'  # 将此路径替换为�
 sys.path.append(module_location)
 from smpl.smpl_torch import SMPLModel
 
+# Torch.manual_seed(3407) is all you need
+torch.manual_seed(3407)
+
 # 定义ResNet基本块
 class BasicBlock(nn.Module):
     expansion = 1
@@ -109,7 +112,7 @@ class ResNet(nn.Module):
 
 
 
-def posenet(num_classes=10+72):#默认直接预测出24×3的关节点位置
+def posenet(num_classes=10+72,device = 'cuda'):#默认直接预测出24×3的关节点位置
 
     return ResNet(BasicBlock, [2, 2, 2, 2], num_classes)
 
