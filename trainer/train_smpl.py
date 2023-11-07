@@ -11,7 +11,8 @@ module_location = 'D:\workspace\python_ws\pose-master'  # 将此路径替换为�
 sys.path.append(module_location)
 
 # from models.posenet_res import posenet
-from models.posenet_res_smpl_embeded import posenet
+from models.posenet_res_smpl_batch import posenet
+from models.mobilenet_smpl import mobilenet
 
 import datetime
 from torch.utils.tensorboard import SummaryWriter
@@ -92,11 +93,11 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
             optimizer.zero_grad()
 
             # 前向传播
-            outputs = model(images, genders, transs)
+            _, joints = model(images, genders)
 
 
             # 默认使用float32数据类型进行训练
-            loss = criterion(outputs, skeletons)
+            loss = criterion(joints, skeletons)
 
             # 反向传播和优化
 
@@ -137,7 +138,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         checkpoint = {
         'model_state_dict': model.state_dict(),
         # 'optimizer_state_dict': optimizer.state_dict(),
-        'epochs': total_epoch, # 保存当前训练的 epoch 数
+        'epochs': total_epoch + epoch, # 保存当前训练的 epoch 数
         'loss_funtion' : 'MSELoss',
         'optimizer' : 'Adam',
         'loss' : test_loss,
@@ -209,5 +210,5 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,num_workers = 4, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 4, pin_memory=True)
 
-    train(train_loader = test_loader, test_loader = test_loader, num_epochs=200, model=posenet, checkpoint_path=r'checkpoints\best_resnet+smpl(embeded).pth')
+    train(train_loader = test_loader, test_loader = test_loader, num_epochs=200, model=mobilenet,checkpoint_path = None)
 

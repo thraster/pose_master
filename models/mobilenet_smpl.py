@@ -6,68 +6,72 @@ import numpy as np
 import cv2
 import time
 
-# 将模块所在的目录添加到模块搜索路径
-module_location = 'D:\workspace\python_ws\pose-master'  # 将此路径替换为实际的模块所在目录
-sys.path.append(module_location)
-from smpl.smpl_torch import SMPLModel
+class InvertedResidual(nn.Module):
+    def __init__(self, in_channels, out_channels, stride, expand_ratio):
+        super(InvertedResidual, self).__init__()
+        hidden_dim = in_channels * expand_ratio
+        self.use_res_connect = stride == 1 and in_channels == out_channels
 
-# Torch.manual_seed(3407) is all you need
-torch.manual_seed(3407)
-
-# 定义ResNet基本块
-class BasicBlock(nn.Module):
-    expansion = 1
-
-    def __init__(self, in_channels, out_channels, stride=1):
-        super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-
-        # 下采样层
-        self.downsample = nn.Sequential()
-        if stride != 1 or in_channels != out_channels:
-            self.downsample = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(out_channels),
-            )
+        layers = []
+        if expand_ratio != 1:
+            layers.append(nn.Conv2d(in_channels, hidden_dim, 1, 1, 0, bias=False))
+            layers.append(nn.BatchNorm2d(hidden_dim))
+            layers.append(nn.ReLU6(inplace=True))
+        layers.extend([
+            nn.Conv2d(hidden_dim, hidden_dim, 3, stride, 1, groups=hidden_dim, bias=False),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU6(inplace=True),
+            nn.Conv2d(hidden_dim, out_channels, 1, 1, 0, bias=False),
+            nn.BatchNorm2d(out_channels),
+        ])
+        self.conv = nn.Sequential(*layers)
 
     def forward(self, x):
-        residual = self.downsample(x)
+        if self.use_res_connect:
+            return x + self.conv(x)
+        else:
+            return self.conv(x)
 
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
+class MobileNetV2(nn.Module):
+    def __init__(self, num_classes=1000, width_multiplier=1.0, input_size=224, inverted_residual_setting=None, device = 'cuda'):
+        super(MobileNetV2, self).__init__()
+        self.name = 'mobilenetv2_smpl'
+        input_channel = 32
+        last_channel = 1280
+        if inverted_residual_setting is None:
+            inverted_residual_setting = [
+                # t, c, n, s
+                [1, 16, 1, 1],
+                [6, 24, 2, 2],
+                [6, 32, 3, 2],
+                [6, 64, 4, 2],
+                [6, 96, 3, 1],
+                [6, 160, 3, 2],
+                [6, 320, 1, 1],
+            ]
+        # 输入通道数改为了1
+        self.features = [nn.Conv2d(1, input_channel, 3, 2, 1, bias=False)]
+        self.features.append(nn.BatchNorm2d(input_channel))
+        self.features.append(nn.ReLU6(inplace=True))
+        for t, c, n, s in inverted_residual_setting:
+            output_channel = int(c * width_multiplier)
+            for i in range(n):
+                stride = s if i == 0 else 1
+                self.features.append(InvertedResidual(input_channel, output_channel, stride, t))
+                input_channel = output_channel
+        self.features.append(nn.Conv2d(input_channel, last_channel, 1, 1, 0, bias=False))
+        self.features.append(nn.BatchNorm2d(last_channel))
+        self.features.append(nn.ReLU6(inplace=True))
+        self.features = nn.Sequential(*self.features)
 
-        out = self.conv2(out)
-        out = self.bn2(out)
+        self.classifier = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(last_channel, num_classes)
+        )
 
-        out += residual
-        out = self.relu(out)
-
-        return out
-
-# 定义ResNet主网络
-class ResNet_smpl(nn.Module):
-    def __init__(self, block, layers, num_classes=10+72, device='cuda'):
-        super(ResNet_smpl, self).__init__()
-        self.in_channels = 64
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self.make_layer(block, 64, layers[0])
-        self.layer2 = self.make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self.make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self.make_layer(block, 512, layers[3], stride=2)
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
-        self.name = 'resnet+smpl(embeded)'
         self.device = device
         # 初始化对应性别的SMPL模型
-        
         
         model_path_f = r'smpl\basicModel_f_lbs_10_207_0_v1.0.0.pkl'
         with open(model_path_f, 'rb') as f:
@@ -78,14 +82,8 @@ class ResNet_smpl(nn.Module):
         self.v_template_f = torch.from_numpy(human_f['v_template']).type(torch.float32).to(device)
         self.shapedirs_f = torch.from_numpy(human_f['shapedirs'].r).type(torch.float32).to(device)
         self.kintree_table_f = human_f['kintree_table']
-        # self.faces_f = human_f['f']
+        self.faces_f = human_f['f']
 
-        self.id_to_col_f = {self.kintree_table_f[1, i]: i
-            for i in range(self.kintree_table_f.shape[1])}
-        self.parent_f = {
-            i: self.id_to_col_f[self.kintree_table_f[0, i]]
-            for i in range(1, self.kintree_table_f.shape[1])
-        }
         model_path_m = r'smpl\basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
         with open(model_path_m, 'rb') as f:
             human_m = pickle.load(f, encoding='latin1')
@@ -96,16 +94,6 @@ class ResNet_smpl(nn.Module):
         self.shapedirs_m = torch.from_numpy(human_m['shapedirs'].r).type(torch.float32).to(device)
         self.kintree_table_m = human_m['kintree_table']
         self.faces_m = human_f['f']
-        self.id_to_col_m = {self.kintree_table_m[1, i]: i
-            for i in range(self.kintree_table_m.shape[1])}
-        self.parent_m = {
-            i: self.id_to_col_m[self.kintree_table_m[0, i]]
-            for i in range(1, self.kintree_table_m.shape[1])
-        }
-
-    def posemap(p):
-        p = p.ravel()[3:]   # 跳过根结点
-        return np.concatenate([(cv2.Rodrigues(np.array(pp))[0]-np.eye(3)).ravel() for pp in p.reshape((-1,3))]).ravel()
 
     @staticmethod
     def rodrigues(r):
@@ -177,7 +165,12 @@ class ResNet_smpl(nn.Module):
         return ret
 
     def forward_smpl_f(self, betas, pose, trans, simplify=False):
-
+        id_to_col = {self.kintree_table_f[1, i]: i
+            for i in range(self.kintree_table_f.shape[1])}
+        parent = {
+            i: id_to_col[self.kintree_table_f[0, i]]
+            for i in range(1, self.kintree_table_f.shape[1])
+        }
         v_shaped = torch.tensordot(self.shapedirs_f, betas, dims=([2], [0])) + self.v_template_f
         J = torch.matmul(self.J_regressor_f, v_shaped)
         R_cube_big = self.rodrigues(pose.view(-1, 1, 3))
@@ -199,10 +192,10 @@ class ResNet_smpl(nn.Module):
         for i in range(1, self.kintree_table_f.shape[1]):
             results.append(
                 torch.matmul(
-                    results[self.parent_f[i]],
+                    results[parent[i]],
                     self.with_zeros(
                         torch.cat(
-                        (R_cube_big[i], torch.reshape(J[i, :] - J[self.parent_f[i], :], (3, 1))),
+                        (R_cube_big[i], torch.reshape(J[i, :] - J[parent[i], :], (3, 1))),
                         dim=1
                         )
                     )
@@ -233,7 +226,12 @@ class ResNet_smpl(nn.Module):
         return result, joints
     
     def forward_smpl_m(self, betas, pose, trans, simplify=False):
-
+        id_to_col = {self.kintree_table_m[1, i]: i
+            for i in range(self.kintree_table_m.shape[1])}
+        parent = {
+            i: id_to_col[self.kintree_table_m[0, i]]
+            for i in range(1, self.kintree_table_m.shape[1])
+        }
         v_shaped = torch.tensordot(self.shapedirs_m, betas, dims=([2], [0])) + self.v_template_m
         J = torch.matmul(self.J_regressor_m, v_shaped)
         R_cube_big = self.rodrigues(pose.view(-1, 1, 3))
@@ -255,10 +253,10 @@ class ResNet_smpl(nn.Module):
         for i in range(1, self.kintree_table_m.shape[1]):
             results.append(
                 torch.matmul(
-                    results[self.parent_m[i]],
+                    results[parent[i]],
                     self.with_zeros(
                         torch.cat(
-                        (R_cube_big[i], torch.reshape(J[i, :] - J[self.parent_m[i], :], (3, 1))),
+                        (R_cube_big[i], torch.reshape(J[i, :] - J[parent[i], :], (3, 1))),
                         dim=1
                         )
                     )
@@ -288,27 +286,10 @@ class ResNet_smpl(nn.Module):
         joints = torch.tensordot(result, self.J_regressor_m, dims=([0], [1])).transpose(0, 1)
         return result, joints
 
-    # def forward_smpl(self, genders, betas, poses, transs):
-
-
-    def make_layer(self, block, out_channels, blocks, stride=1):
-        layers = []
-        layers.append(block(self.in_channels, out_channels, stride))
-        self.in_channels = out_channels * block.expansion
-        for _ in range(1, blocks):
-            layers.append(block(self.in_channels, out_channels))
-        return nn.Sequential(*layers)
-
     def forward(self, x, genders):
-        # print(genders[0])
-        '''
-        skeleton: torch.Size([batchsize, 72])
-        image: torch.Size([batchsize, 1, 224, 224])
-        gender: torch.Size([batchsize, 1])
-        trans: torch.Size([batchsize, 3])
-        
-        '''
-
+        meshs = []
+        joints = []
+        x = self.features(x)
         '''
         全连接层输出长度为85的X
         x[0:10]: betas
@@ -318,46 +299,26 @@ class ResNet_smpl(nn.Module):
         x[10:12]描述了根节点的rotation
         x[82:85]描述了更节点的global translation
         '''
-        meshs = []
-        joints = []
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        x = self.classifier(x)
         for i, batch in enumerate(x):
+            # print(batch.shape)
+            # print(i)
             if genders[i,0].int() == 0:
                 mesh, joint = self.forward_smpl_f(betas = batch[:10], pose = batch[10:82],trans = batch[82:85])
             elif genders[i,0].int() == 1:
                 mesh, joint = self.forward_smpl_m(betas = batch[:10], pose = batch[10:82],trans = batch[82:85])
             meshs.append(mesh)
             joints.append(torch.reshape(joint,(1,72)))
+        # print(f"smpl forward time: {smpl2-smpl1}")
         meshs = torch.cat(meshs, dim = 0)
         joints = torch.cat(joints, dim = 0)
+
         return meshs, joints
 
-
-
-def posenet(num_classes=10+72,device='cuda'):#默认直接预测出24×3的关节点位置
-
-    return ResNet_smpl(BasicBlock, [2, 2, 2, 2], num_classes,device)
-
-
-
-if __name__ == "__main__":
-# 创建ResNet-18模型
-    # 创建ResNet模型实例
+def mobilenet(device):
+    # 创建 MobileNetV2 模型
+    return MobileNetV2(num_classes=10+72+3, device = device)
     
-    model = posenet(10+72) # 10个shape参数和 24*3的pose参数
-
-    # smpl = SMPLModel()
-    # 打印模型结构
-    print(model)
+# # 打印模型结构
+# print(model)

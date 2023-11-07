@@ -91,10 +91,6 @@ class ResNet_smpl(nn.Module):
         self.kintree_table_m = human_m['kintree_table']
         self.faces_m = human_f['f']
 
-    def posemap(p):
-        p = p.ravel()[3:]   # 跳过根结点
-        return np.concatenate([(cv2.Rodrigues(np.array(pp))[0]-np.eye(3)).ravel() for pp in p.reshape((-1,3))]).ravel()
-
     @staticmethod
     def rodrigues(r):
         """
