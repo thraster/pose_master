@@ -6,6 +6,11 @@ import numpy as np
 import cv2
 import time
 
+module_location = r'D:\workspace\python_ws\pose-master'
+sys.path.append(module_location)
+from smpl.smpl_torch_batch import test_smpl
+
+
 class InvertedResidual(nn.Module):
     def __init__(self, in_channels, out_channels, stride, expand_ratio):
         super(InvertedResidual, self).__init__()
@@ -287,9 +292,6 @@ class MobileNetV2(nn.Module):
         return result, joints
 
     def forward(self, x, genders):
-        meshs = []
-        joints = []
-        x = self.features(x)
         '''
         全连接层输出长度为85的X
         x[0:10]: betas
@@ -299,8 +301,11 @@ class MobileNetV2(nn.Module):
         x[10:12]描述了根节点的rotation
         x[82:85]描述了更节点的global translation
         '''
-
+        meshs = []
+        joints = []
+        x = self.features(x)
         x = self.classifier(x)
+        '''
         for i, batch in enumerate(x):
             # print(batch.shape)
             # print(i)
@@ -314,6 +319,10 @@ class MobileNetV2(nn.Module):
         meshs = torch.cat(meshs, dim = 0)
         joints = torch.cat(joints, dim = 0)
 
+        '''
+        batch = x
+        print(batch[:,:10].shape, batch[:,10:82].shape,batch[:,82:85].shape)
+        meshs,joints = test_smpl(device=self.device,betas = batch[:,:10], pose = batch[:,10:82],trans = batch[:,82:85] )
         return meshs, joints
 
 def mobilenet(device):
@@ -322,3 +331,4 @@ def mobilenet(device):
     
 # # 打印模型结构
 # print(model)
+

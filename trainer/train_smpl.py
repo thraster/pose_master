@@ -12,7 +12,7 @@ sys.path.append(module_location)
 
 # from models.posenet_res import posenet
 from models.posenet_res_smpl_batch import posenet
-from models.mobilenet_smpl import mobilenet
+from models.mobilenet_smpl_batch import mobilenet
 
 import datetime
 from torch.utils.tensorboard import SummaryWriter
@@ -28,6 +28,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
     checkpoint_path:不为空时从checkpoint文件加载模型权重,在其基础上继续训练
     '''
     test_loss_list = []
+    time_epoch_list = []
     # 初始化模型
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -75,9 +76,11 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         print(f"current epoch: {epoch}")
         running_loss = 0.0
         time_batchs = 0.0
+        time_epoch = 0.0
 
         # 1.训练
         for i, data in enumerate(train_loader, 0):
+            
             start_time = time.time()
             # data.keys() = ['skeleton', 'image', 'gender', 'trans']
 
@@ -122,12 +125,14 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
             end_time = time.time()
             elapsed_time = end_time - start_time
             time_batchs += elapsed_time
-
+            time_epoch += elapsed_time
 
             # print(f"一个batch运行时间：{elapsed_time} 秒")
         # 2.测试
+        print(f"一个epoch运行时间：{time_epoch} 秒")
+        time_epoch_list.append(time_epoch)
 
-        test_loss = test_model_smpl(model=model,epoch=epoch,test_loader=test_loader,device=device,criterion=criterion)
+        test_loss = test_model_smpl(model=model,test_loader=test_loader,device=device,criterion=criterion)
         
         # 添加标量 loss when test
         writer.add_scalar(tag="loss(testing) MSEloss/epochs", scalar_value=loss,
@@ -138,7 +143,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         checkpoint = {
         'model_state_dict': model.state_dict(),
         # 'optimizer_state_dict': optimizer.state_dict(),
-        'epochs': total_epoch + epoch, # 保存当前训练的 epoch 数
+        'epochs': epoch+1, # 保存当前训练的 epoch 数
         'loss_funtion' : 'MSELoss',
         'optimizer' : 'Adam',
         'loss' : test_loss,
@@ -161,17 +166,17 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
             torch.save(checkpoint, f'checkpoints/best_{model.name}.pth')
             print(f"best checkpoint saved! = {min_loss}")
 
-        # 如果连续5个epoch test loss没有再下降，停止训练
-        # elif test_loss >= min_loss:
-            # flag += 1
-        
-        # elif flag >= 5:
-        #     break
 
     writer.close()
     print("训练完成")
     for i,los in enumerate(test_loss_list):
         print(f"epoch {i}, test loss = {los}")
+    total_time = 0.0
+    for i,time_epoch in enumerate(time_epoch_list):
+        total_time += time_epoch
+
+    print(f"totaltime = {total_time}")
+    print(f"avgtime = {total_time/len(time_epoch_list)}")
 
 # 用法示例
 if __name__ == "__main__":
@@ -179,7 +184,7 @@ if __name__ == "__main__":
     # from load_dataset import SkeletonDataset
     # from load_dataset_hdf5 import SkeletonDatasetHDF5
     from load_dataset_mat import SkeletonDatasetMAT
-
+    from load_dataset_lmdb import SkeletonDatasetLMDB
     # import time
 
     # wait_time = 7200  # 等待1小时，可以根据需要设置等待时间
@@ -191,8 +196,12 @@ if __name__ == "__main__":
     # train_data = SkeletonDataset(r'dataset\train',True)
     # test_data = SkeletonDataset(r'dataset\test',True)
 
-    train_data = SkeletonDatasetMAT(r'F:\pose_master_dataset_mat\train')
-    test_data = SkeletonDatasetMAT(r'F:\pose_master_dataset_mat\test')
+    # train_data = SkeletonDatasetMAT(r'F:\pose_master_dataset_mat\train')
+    # test_data = SkeletonDatasetMAT(r'F:\pose_master_dataset_mat\test')
+
+    train_data = SkeletonDatasetLMDB(r'dataset\train_lmdb', transform = True)
+    test_data = SkeletonDatasetLMDB(r'dataset\test_lmdb',  transform = True)
+
 
     # train_data = SkeletonDataset(r'F:\pose_master_dataset\train')
     # test_data = SkeletonDataset(r'F:\pose_master_dataset\test')
@@ -207,8 +216,8 @@ if __name__ == "__main__":
 
     batch_size = 64 # =64时,forward一次1.8s
 
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,num_workers = 4, pin_memory=True)
-    test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 4, pin_memory=True)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
 
-    train(train_loader = test_loader, test_loader = test_loader, num_epochs=200, model=mobilenet,checkpoint_path = None)
+    train(train_loader = test_loader, test_loader = test_loader, num_epochs=200, model=mobilenet,checkpoint_path = r'D:\workspace\python_ws\pose-master\checkpoints\last_mobilenetv2_smpl.pth')
 

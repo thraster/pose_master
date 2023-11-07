@@ -15,15 +15,15 @@ class SMPLModel(Module):
 
     self.J_regressor = torch.from_numpy(
       np.array(params['J_regressor'].todense())
-    ).type(torch.float64)
+    ).type(torch.float32)
     if 'joint_regressor' in params.keys():
       self.joint_regressor = torch.from_numpy(
         np.array(params['joint_regressor'].T.todense())
-      ).type(torch.float64)
+      ).type(torch.float32)
     else:
       self.joint_regressor = torch.from_numpy(
         np.array(params['J_regressor'].todense())
-      ).type(torch.float64)
+      ).type(torch.float32)
 
     # J_regressor: (24, 6890), 与 vertices (6890, 3) 相乘边得到 joints 位置 (24, 3)
     # f: (13776, 3)，faces，我们说到 mesh 除了有 vertices 组成，还有一个 triangle list，每个 triangle 由三个 vertices index 组成
@@ -33,16 +33,16 @@ class SMPLModel(Module):
     # posedirs: (6890, 3, 207), 表示姿势参数到 pose blend shape 的映射关系
     # v_template: (6890, 3), 人体基模版的 vertices
 
-    self.weights = torch.from_numpy(params['weights']).type(torch.float64)
-    self.posedirs = torch.from_numpy(params['posedirs']).type(torch.float64)
-    self.v_template = torch.from_numpy(params['v_template']).type(torch.float64)
-    self.shapedirs = torch.from_numpy(params['shapedirs'].r).type(torch.float64)
+    self.weights = torch.from_numpy(params['weights']).type(torch.float32)
+    self.posedirs = torch.from_numpy(params['posedirs']).type(torch.float32)
+    self.v_template = torch.from_numpy(params['v_template']).type(torch.float32)
+    self.shapedirs = torch.from_numpy(params['shapedirs'].r).type(torch.float32)
     self.kintree_table = params['kintree_table']
     self.faces = params['f']
     self.device = device if device is not None else torch.device('cpu')
     for name in ['J_regressor', 'joint_regressor', 'weights', 'posedirs', 'v_template', 'shapedirs']:
       _tensor = getattr(self, name)
-      print(' Tensor {} shape: '.format(name), _tensor.shape)
+      # print(' Tensor {} shape: '.format(name), _tensor.shape)
       setattr(self, name, _tensor.to(device))
 
   @staticmethod
@@ -65,13 +65,13 @@ class SMPLModel(Module):
     theta_dim = theta.shape[0]
     r_hat = r / theta
     cos = torch.cos(theta)
-    z_stick = torch.zeros(theta_dim, dtype=torch.float64).to(r.device)
+    z_stick = torch.zeros(theta_dim, dtype=torch.float32).to(r.device)
     m = torch.stack(
       (z_stick, -r_hat[:, 0, 2], r_hat[:, 0, 1], r_hat[:, 0, 2], z_stick,
        -r_hat[:, 0, 0], -r_hat[:, 0, 1], r_hat[:, 0, 0], z_stick), dim=1)
     m = torch.reshape(m, (-1, 3, 3))
-    i_cube = (torch.eye(3, dtype=torch.float64).unsqueeze(dim=0) \
-             + torch.zeros((theta_dim, 3, 3), dtype=torch.float64)).to(r.device)
+    i_cube = (torch.eye(3, dtype=torch.float32).unsqueeze(dim=0) \
+             + torch.zeros((theta_dim, 3, 3), dtype=torch.float32)).to(r.device)
     A = r_hat.permute(0, 2, 1)
     dot = torch.matmul(A, r_hat)
     R = cos * i_cube + (1 - cos) * dot + torch.sin(theta) * m
@@ -92,7 +92,7 @@ class SMPLModel(Module):
 
     """
     ones = torch.tensor(
-      [[[0.0, 0.0, 0.0, 1.0]]], dtype=torch.float64
+      [[[0.0, 0.0, 0.0, 1.0]]], dtype=torch.float32
     ).expand(x.shape[0],-1,-1).to(x.device)
     ret = torch.cat((x, ones), dim=1)
     return ret
@@ -112,7 +112,7 @@ class SMPLModel(Module):
 
     """
     zeros43 = torch.zeros(
-      (x.shape[0], x.shape[1], 4, 3), dtype=torch.float64).to(x.device)
+      (x.shape[0], x.shape[1], 4, 3), dtype=torch.float32).to(x.device)
     ret = torch.cat((zeros43, x), dim=3)
     return ret
 
@@ -164,8 +164,8 @@ class SMPLModel(Module):
       v_posed = v_shaped
     else:
       R_cube = R_cube_big[:, 1:, :, :]
-      I_cube = (torch.eye(3, dtype=torch.float64).unsqueeze(dim=0) + \
-        torch.zeros((batch_num, R_cube.shape[1], 3, 3), dtype=torch.float64)).to(self.device)
+      I_cube = (torch.eye(3, dtype=torch.float32).unsqueeze(dim=0) + \
+        torch.zeros((batch_num, R_cube.shape[1], 3, 3), dtype=torch.float32)).to(self.device)
       lrotmin = (R_cube - I_cube).reshape(batch_num, -1, 1).squeeze(dim=2)
       v_posed = v_shaped + torch.tensordot(lrotmin, self.posedirs, dims=([1], [2]))
 
@@ -192,7 +192,7 @@ class SMPLModel(Module):
         torch.matmul(
           stacked,
           torch.reshape(
-            torch.cat((J, torch.zeros((batch_num, 24, 1), dtype=torch.float64).to(self.device)), dim=2),
+            torch.cat((J, torch.zeros((batch_num, 24, 1), dtype=torch.float32).to(self.device)), dim=2),
             (batch_num, 24, 4, 1)
           )
         )
@@ -200,7 +200,7 @@ class SMPLModel(Module):
     # Restart from here
     T = torch.tensordot(results, self.weights, dims=([1], [1])).permute(0, 3, 1, 2)
     rest_shape_h = torch.cat(
-      (v_posed, torch.ones((batch_num, v_posed.shape[1], 1), dtype=torch.float64).to(self.device)), dim=2
+      (v_posed, torch.ones((batch_num, v_posed.shape[1], 1), dtype=torch.float32).to(self.device)), dim=2
     )
     v = torch.matmul(T, torch.reshape(rest_shape_h, (batch_num, -1, 4, 1)))
     v = torch.reshape(v, (batch_num, -1, 4))[:, :, :3]
@@ -218,14 +218,14 @@ def test_smpl(device, pose, betas, trans):
   s = time()
 
   result, joints = smpl(betas, pose, trans)
-  print("mesh:",result.shape)
-  print("joint:", joints.shape)
+  # print("mesh:",result.shape)
+  # print("joint:", joints.shape)
   print("time cost:",time() - s)
   return result, joints
   # outmesh_path = './smpl_torch_{}.obj'
   # for i in range(result.shape[0]):
       # model.write_obj(result[i], outmesh_path.format(i))
-  
+
 
 if __name__ == '__main__':
   import matplotlib.pyplot as plt
@@ -240,31 +240,35 @@ if __name__ == '__main__':
   beta_size = 10
 
   np.random.seed(9608)
-  pose = torch.from_numpy((np.random.rand(32, pose_size) - 0.5) * 0.4)\
-        .type(torch.float64).to(device)
-  betas = torch.from_numpy((np.random.rand(32, beta_size) - 0.5) * 0.06) \
-          .type(torch.float64).to(device)
-  trans = torch.from_numpy(np.ones((32, 3))).type(torch.float64).to(device)
+  batch_size = 64
+  pose = torch.from_numpy((np.random.rand(batch_size, pose_size) - 0.5) * 0.4)\
+        .type(torch.float32).to(device)
+  betas = torch.from_numpy((np.random.rand(batch_size, beta_size) - 0.5) * 0.06) \
+          .type(torch.float32).to(device)
+  trans = torch.from_numpy(np.ones((batch_size, 3))).type(torch.float32).to(device)
+
+  print(pose.shape,betas.shape,trans.shape)
 
   mesh, joint = test_smpl(device,pose,betas,trans)
+  print(mesh.shape,joint.shape)
 
 
 
-  # 假设您有一个批次的mesh和joint
-  batch_idx = 0  # 选择要显示的批次索引
+  # # 假设您有一个批次的mesh和joint
+  # batch_idx = 0  # 选择要显示的批次索引
 
-  # 可视化mesh
-  mesh_data = mesh[batch_idx].cpu().numpy()
-  fig = plt.figure()
-  ax = fig.add_subplot(111, projection='3d')
-  ax.scatter(mesh_data[:, 0], mesh_data[:, 1], mesh_data[:, 2])
-  ax.set_title('Mesh Visualization')
-  plt.show()
+  # # 可视化mesh
+  # mesh_data = mesh[batch_idx].cpu().numpy()
+  # fig = plt.figure()
+  # ax = fig.add_subplot(111, projection='3d')
+  # ax.scatter(mesh_data[:, 0], mesh_data[:, 1], mesh_data[:, 2])
+  # ax.set_title('Mesh Visualization')
+  # plt.show()
 
-  # 可视化joint
-  joint_data = joint[batch_idx].cpu().numpy()
-  fig = plt.figure()
-  ax = fig.add_subplot(111, projection='3d')
-  ax.scatter(joint_data[:, 0], joint_data[:, 1], joint_data[:, 2])
-  ax.set_title('Joint Visualization')
-  plt.show()
+  # # 可视化joint
+  # joint_data = joint[batch_idx].cpu().numpy()
+  # fig = plt.figure()
+  # ax = fig.add_subplot(111, projection='3d')
+  # ax.scatter(joint_data[:, 0], joint_data[:, 1], joint_data[:, 2])
+  # ax.set_title('Joint Visualization')
+  # plt.show()

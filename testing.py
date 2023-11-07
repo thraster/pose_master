@@ -68,7 +68,7 @@ def test_model(model, epoch, test_loader, device, criterion):
     # accuracy = 100 * correct / total
     # print(f"Test Accuracy: {accuracy:.2f}%")
 
-def test_model_smpl(model, epoch, test_loader, device, criterion):
+def test_model_smpl(model, test_loader, device, criterion):
     '''
     test函数,用于一个epoch结束后的test,并保存该epoch的checkpoint
 
@@ -103,7 +103,7 @@ def test_model_smpl(model, epoch, test_loader, device, criterion):
 
             # start_time = time.time()
             # 前向传播
-            outputs = model(inputs, genders, trans)
+            _, outputs = model(inputs, genders)
             # forward_time = time.time()
             # print(f"forward代码执行时间：{forward_time-start_time} 秒")
             # 计算损失
@@ -126,18 +126,7 @@ def test_model_smpl(model, epoch, test_loader, device, criterion):
     # 输出测试结果
     print(f"Test Loss: {test_loss / lenth}")
 
-    # checkpoint = {
-    #             'model_state_dict': model.state_dict(),
-    #             # 'optimizer_state_dict': optimizer.state_dict(),
-    #             'epochs': epoch, # 保存当前训练的 epoch 数
-    #             'loss_funtion' : 'MSELoss',
-    #             'optimizer' : 'Adam',
-    #             'test_loss' : test_loss / lenth,
-    #             'net' : "vgg16",
-    #             # 可以保存其他超参数信息
-    #             }
-    # torch.save(checkpoint, f'checkpoints/checkpoint_epoch{epoch}.pth')
-    # print(f"epoch {epoch} checkpoint saved!")
+
 
     return test_loss / lenth
     # accuracy = 100 * correct / total
