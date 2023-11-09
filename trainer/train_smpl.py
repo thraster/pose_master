@@ -11,7 +11,7 @@ module_location = 'D:\workspace\python_ws\pose-master'  # 将此路径替换为�
 sys.path.append(module_location)
 
 # from models.posenet_res import posenet
-from models.posenet_res_smpl_batch import posenet
+from models.resnet_smpl_batch import posenet
 from models.mobilenet_smpl_batch import mobilenet
 
 import datetime
@@ -84,7 +84,10 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
             start_time = time.time()
             # data.keys() = ['skeleton', 'image', 'gender', 'trans']
 
-            skeletons, images, genders, transs = data.values()
+            images = data['image']
+            skeletons = data['skeleton']
+            genders = data['gender']
+            transs = data['trans']
 
             # 将输入和标签移动到GPU上
             images = images.to(device)
@@ -183,7 +186,7 @@ if __name__ == "__main__":
 
     # from load_dataset import SkeletonDataset
     # from load_dataset_hdf5 import SkeletonDatasetHDF5
-    from load_dataset_mat import SkeletonDatasetMAT
+    # from load_dataset_mat import SkeletonDatasetMAT
     from load_dataset_lmdb import SkeletonDatasetLMDB
     # import time
 
@@ -199,8 +202,8 @@ if __name__ == "__main__":
     # train_data = SkeletonDatasetMAT(r'F:\pose_master_dataset_mat\train')
     # test_data = SkeletonDatasetMAT(r'F:\pose_master_dataset_mat\test')
 
-    train_data = SkeletonDatasetLMDB(r'dataset\train_lmdb', transform = True)
-    test_data = SkeletonDatasetLMDB(r'dataset\test_lmdb',  transform = True)
+    train_data = SkeletonDatasetLMDB(r'dataset\train_lmdb_new', transform = True)
+    test_data = SkeletonDatasetLMDB(r'dataset\test_lmdb_new',  transform = True)
 
 
     # train_data = SkeletonDataset(r'F:\pose_master_dataset\train')
@@ -219,5 +222,6 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
 
-    train(train_loader = test_loader, test_loader = test_loader, num_epochs=200, model=mobilenet,checkpoint_path = r'D:\workspace\python_ws\pose-master\checkpoints\last_mobilenetv2_smpl.pth')
+    train(train_loader = test_loader, test_loader = test_loader, num_epochs=401, model=mobilenet,checkpoint_path = None)
 
+    train(train_loader = test_loader, test_loader = test_loader, num_epochs=401, model=posenet,checkpoint_path = None)

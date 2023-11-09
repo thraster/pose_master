@@ -305,7 +305,7 @@ class MobileNetV2(nn.Module):
         joints = []
         x = self.features(x)
         x = self.classifier(x)
-        '''
+
         for i, batch in enumerate(x):
             # print(batch.shape)
             # print(i)
@@ -319,10 +319,10 @@ class MobileNetV2(nn.Module):
         meshs = torch.cat(meshs, dim = 0)
         joints = torch.cat(joints, dim = 0)
 
-        '''
-        batch = x
-        print(batch[:,:10].shape, batch[:,10:82].shape,batch[:,82:85].shape)
-        meshs,joints = test_smpl(device=self.device,betas = batch[:,:10], pose = batch[:,10:82],trans = batch[:,82:85] )
+
+        # batch = x
+        # print(batch[:,:10].shape, batch[:,10:82].shape,batch[:,82:85].shape)
+        # meshs,joints = test_smpl(device=self.device,betas = batch[:,:10], pose = batch[:,10:82],trans = batch[:,82:85] )
         return meshs, joints
 
 def mobilenet(device):

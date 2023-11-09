@@ -27,17 +27,17 @@ def test_model(model, epoch, test_loader, device, criterion):
     with torch.no_grad():
         
         for i, data in enumerate(test_loader):
-            labels, inputs, genders = data.values()
+            skeletons, images, genders = data.values()
 
             # 将输入和标签移动到GPU上（如果可用）
-            inputs = inputs.to(device)
-            labels = labels.to(device)
+            images = images.to(device)
+            skeletons = skeletons.to(device)
 
             # 前向传播
-            outputs = model(inputs)
+            outputs = model(images)
             
             # 计算损失
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, skeletons)
             
             # 累积损失
             test_loss += loss.item()
@@ -45,8 +45,8 @@ def test_model(model, epoch, test_loader, device, criterion):
                 print(f"current progress: {i/lenth*100:.2f}%")
             # # 计算准确率
             # predicted = (outputs > 0.5).float()  # 二分类阈值通常为0.5
-            # total += labels.size(0)
-            # correct += (predicted == labels).sum().item()
+            # total += skeletons.size(0)
+            # correct += (predicted == skeletons).sum().item()
         # test_loss = 0
     # 输出测试结果
     print(f"Test Loss: {test_loss / lenth}")
@@ -93,22 +93,26 @@ def test_model_smpl(model, test_loader, device, criterion):
         
         for i, data in enumerate(test_loader):
         
-            labels, inputs, genders, trans = data.values()
+            # lenth = data['gender'].size(0)
+            skeletons = data['skeleton'].to(device)
+            images = data['image'].to(device)
+            genders = data['gender'].to(device)
+            transs = data['trans'].to(device)
 
-            # 将输入和标签移动到GPU上（如果可用）
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            genders = genders.to(device)
-            trans = trans.to(device)
+            # # 将输入和标签移动到GPU上（如果可用）
+            # images = images.to(device)
+            # skeletons = skeletons.to(device)
+            # genders = genders.to(device)
+            # transs = transs.to(device)
 
             # start_time = time.time()
             # 前向传播
-            _, outputs = model(inputs, genders)
+            _, outputs = model(images, genders)
             # forward_time = time.time()
             # print(f"forward代码执行时间：{forward_time-start_time} 秒")
             # 计算损失
             
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, skeletons)
             # print(loss)
 
             # end_time = time.time()
@@ -120,8 +124,8 @@ def test_model_smpl(model, test_loader, device, criterion):
                 print(f"current progress: {i/lenth*100:.2f}%")
             # # 计算准确率
             # predicted = (outputs > 0.5).float()  # 二分类阈值通常为0.5
-            # total += labels.size(0)
-            # correct += (predicted == labels).sum().item()
+            # total += skeletons.size(0)
+            # correct += (predicted == skeletons).sum().item()
         # test_loss = 0
     # 输出测试结果
     print(f"Test Loss: {test_loss / lenth}")

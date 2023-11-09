@@ -47,7 +47,7 @@ class BasicBlock(nn.Module):
 
 # 定义ResNet主网络
 class ResNet(nn.Module):
-    def __init__(self, block, layers, num_classes=10+72):
+    def __init__(self, block, layers, num_classes=10+72, device = 'cuda'):
         super(ResNet, self).__init__()
         self.in_channels = 64
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -63,8 +63,8 @@ class ResNet(nn.Module):
         self.name = 'resnet+smpl'
 
         # 初始化对应性别的SMPL模型
-        self.smpl_f = SMPLModel(device='cuda',model_path=r"smpl\basicModel_f_lbs_10_207_0_v1.0.0.pkl")
-        self.smpl_m = SMPLModel(device='cuda',model_path=r"smpl\basicmodel_m_lbs_10_207_0_v1.0.0.pkl")
+        self.smpl_f = SMPLModel(device=device,model_path=r"smpl\basicModel_f_lbs_10_207_0_v1.0.0.pkl")
+        self.smpl_m = SMPLModel(device=device,model_path=r"smpl\basicmodel_m_lbs_10_207_0_v1.0.0.pkl")
 
     def make_layer(self, block, out_channels, blocks, stride=1):
         layers = []
@@ -74,7 +74,7 @@ class ResNet(nn.Module):
             layers.append(block(self.in_channels, out_channels))
         return nn.Sequential(*layers)
 
-    def forward(self, x, genders, trans):
+    def forward(self, x, genders):
         # print(genders[0])
         meshs = []
         joints = []
@@ -96,25 +96,23 @@ class ResNet(nn.Module):
             # print(batch.shape)
             # print(i)
             if genders[i].int() == 0:
-                mesh, joint = self.smpl_f(betas = batch[:10], pose = batch[10:],trans = trans[i])
+                mesh, joint = self.smpl_f(betas = batch[:10], pose = batch[10:82],trans = batch[82:85])
             elif genders[i].int() == 1:
-                mesh, joint = self.smpl_m(betas = batch[:10], pose = batch[10:],trans = trans[i])
+                mesh, joint = self.smpl_m(betas = batch[:10], pose = batch[10:82],trans = batch[82:85])
 
             meshs.append(mesh)
             joints.append(torch.reshape(joint,(1,72)))
 
         meshs = torch.cat(meshs, dim = 0)
         joints = torch.cat(joints, dim = 0)
-        # print(joints.double())
-        # print(joints.shape)
 
         return joints
 
 
 
-def posenet(num_classes=10+72,device = 'cuda'):#默认直接预测出24×3的关节点位置
+def posenet(num_classes=10+72+3,device = 'cuda'):#默认直接预测出24×3的关节点位置
 
-    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes)
+    return ResNet(BasicBlock, [2, 2, 2, 2], num_classes,device=device)
 
 
 

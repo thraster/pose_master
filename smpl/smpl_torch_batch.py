@@ -4,7 +4,9 @@ import torch
 from torch.nn import Module
 import os
 from time import time
-
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.pyplot import MultipleLocator
 
 class SMPLModel(Module):
   def __init__(self, device=None, model_path='./model.pkl'):
@@ -226,49 +228,226 @@ def test_smpl(device, pose, betas, trans):
   # for i in range(result.shape[0]):
       # model.write_obj(result[i], outmesh_path.format(i))
 
+def visualize_mesh(mesh1, mesh2):
+    """
+    Visualize two sets of (6980, 3) mesh vertices in a 3D plot.
+
+    Args:
+        mesh1 (torch.Tensor): A tensor of shape (6980, 3) containing the first set of mesh vertices.
+        mesh2 (torch.Tensor): A tensor of shape (6980, 3) containing the second set of mesh vertices.
+    """
+
+    # 创建一个3D图形
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # 设置X坐标轴的单位刻度
+    ax.xaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+    # 设置Y坐标轴的单位刻度
+    ax.yaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+    # 设置Z坐标轴的单位刻度
+    ax.zaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+    # 绘制第一个mesh的顶点，使用红色
+    ax.scatter(mesh1[:, 0], mesh1[:, 1], mesh1[:, 2], c='r', marker='o', label='Mesh 1')
+
+    # 绘制第二个mesh的顶点，使用蓝色
+    ax.scatter(mesh2[:, 0], mesh2[:, 1], mesh2[:, 2], c='b', marker='o', label='Mesh 2')
+
+    # 设置坐标轴标签
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    # 自定义图例信息
+    labels = ['predict mesh', 'ground truth mesh']
+    # 添加图例
+    ax.legend(labels)
+
+    # 使用set_box_aspect函数设置坐标轴的单位比例
+    ax.axis('equal')  # 单位比例在这里设置为1，您可以根据需要调整
+
+    # 显示图形
+    plt.show()
+
+def visualize_joints(joints1,joints2):
+    """
+    Visualize 24x3 joint coordinates in a 3D plot.
+
+    Args:
+        joints (torch.Tensor): A tensor of shape (24, 3) containing 3D joint coordinates.
+        joints1 - the predicted joints
+        joints2 - the ground truth joints
+    """
+    connections = [(12, 15), (12, 14), (12, 13), 
+                   (13, 16), (16, 18), (18, 20), (20, 22), 
+                   (14, 17), (17, 19), (19, 21),(21, 23), 
+                   (14, 9), (13, 9), (9, 6), (6, 3), (3, 0), (0, 2), (0, 1),
+                   (1, 4), (4, 7), (7, 10),
+                   (2, 5), (5, 8), (8, 11)]  # 示例连接信息
+
+    # 创建一个3D图形
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+
+    # 设置X坐标轴的单位刻度
+    ax.xaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+    # 设置Y坐标轴的单位刻度
+    ax.yaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+    # 设置Z坐标轴的单位刻度
+    ax.zaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+
+    # 绘制第一组关节点，使用红色
+    ax.scatter(joints1[:, 0], joints1[:, 1], joints1[:, 2], c='r', marker='o', label='Joints Set 1')
+
+    # 绘制第二组关节点，使用蓝色
+    ax.scatter(joints2[:, 0], joints2[:, 1], joints2[:, 2], c='b', marker='o', label='Joints Set 2')
+
+    # 绘制关节连接线
+    for connection in connections:
+        joint1, joint2 = connection
+        x1, y1, z1 = joints1[joint1]
+        x2, y2, z2 = joints1[joint2]
+        ax.plot([x1, x2], [y1, y2], [z1, z2], c='r')
+
+        x1, y1, z1 = joints2[joint1]
+        x2, y2, z2 = joints2[joint2]
+        ax.plot([x1, x2], [y1, y2], [z1, z2], c='b')
+
+    # 设置坐标轴标签
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    # 显示图形
+
+    # for i in range(len(joints)):
+    #     x = joints[i, 0]
+    #     y = joints[i, 1]
+    #     z = joints[i, 2]
+    #     ax.scatter(x, y, z, c='r', marker='o')
+    #     ax.text(x, y, z, i)  # 添加关节点标号
+
+    # 自定义图例信息
+    labels = ['markers_xyz', 'smpl_joints']
+    # 添加图例
+    ax.legend(labels)
+
+    # 设置三个轴比例尺一致
+    ax.axis('equal')  
+
+    plt.show()
+
+def visualize_mesh(mesh1, mesh2):
+    """
+    Visualize two sets of (6980, 3) mesh vertices in a 3D plot.
+
+    Args:
+        mesh1 (torch.Tensor): A tensor of shape (6980, 3) containing the first set of mesh vertices.
+        mesh2 (torch.Tensor): A tensor of shape (6980, 3) containing the second set of mesh vertices.
+    """
+
+    # 创建一个3D图形
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # 设置X坐标轴的单位刻度
+    ax.xaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+    # 设置Y坐标轴的单位刻度
+    ax.yaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+    # 设置Z坐标轴的单位刻度
+    ax.zaxis.set_major_locator(MultipleLocator(0.2))  # 在这里设置单位刻度的值
+
+    # 绘制第一个mesh的顶点，使用红色
+    ax.scatter(mesh1[:, 0], mesh1[:, 1], mesh1[:, 2], c='r', marker='o', label='Mesh 1')
+
+    # 绘制第二个mesh的顶点，使用蓝色
+    ax.scatter(mesh2[:, 0], mesh2[:, 1], mesh2[:, 2], c='b', marker='o', label='Mesh 2')
+
+    # 设置坐标轴标签
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    # 自定义图例信息
+    labels = ['predict mesh', 'ground truth mesh']
+    # 添加图例
+    ax.legend(labels)
+
+    # 使用set_box_aspect函数设置坐标轴的单位比例
+    ax.axis('equal')  # 单位比例在这里设置为1，您可以根据需要调整
+
+    # 显示图形
+    plt.show()
+
 
 if __name__ == '__main__':
-  import matplotlib.pyplot as plt
-  from mpl_toolkits.mplot3d import Axes3D
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    import sys
+    module_location = r'D:\workspace\python_ws\pose-master'
+    sys.path.append(module_location)
+    from load_dataset_lmdb import SkeletonDatasetLMDB
+    lmdb_path = r'D:\workspace\python_ws\pose-master\dataset\lmdb_data_test'  # 替换为LMDB数据库的路径
+    lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=True)
+    # lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=None)
+    # 获取数据集的长度
+    print("Dataset length:", len(lmdb_dataset))
 
-  if torch.cuda.is_available():
-    device = torch.device('cuda')
-  else:
-    device = torch.device('cpu')
+    # 加载数据
+    test_loader = torch.utils.data.DataLoader(lmdb_dataset, batch_size=4, shuffle=False,num_workers = 0)
 
-  pose_size = 72
-  beta_size = 10
+    if torch.cuda.is_available():
+      device = torch.device('cuda')
+    else:
+      device = torch.device('cpu')
 
-  np.random.seed(9608)
-  batch_size = 64
-  pose = torch.from_numpy((np.random.rand(batch_size, pose_size) - 0.5) * 0.4)\
-        .type(torch.float32).to(device)
-  betas = torch.from_numpy((np.random.rand(batch_size, beta_size) - 0.5) * 0.06) \
-          .type(torch.float32).to(device)
-  trans = torch.from_numpy(np.ones((batch_size, 3))).type(torch.float32).to(device)
+    # pose_size = 72
+    # beta_size = 10
 
-  print(pose.shape,betas.shape,trans.shape)
+    # np.random.seed(9608)
+    # batch_size = 64
+    # pose = torch.from_numpy((np.random.rand(batch_size, pose_size) - 0.5) * 0.4)\
+    #       .type(torch.float32).to(device)
+    # betas = torch.from_numpy((np.random.rand(batch_size, beta_size) - 0.5) * 0.06) \
+    #         .type(torch.float32).to(device)
+    # trans = torch.from_numpy(np.ones((batch_size, 3))).type(torch.float32).to(device)
 
-  mesh, joint = test_smpl(device,pose,betas,trans)
-  print(mesh.shape,joint.shape)
+    # print(pose.shape,betas.shape,trans.shape)
+    for data_item in test_loader:
+      pose = data_item['pose'].to(device)
+      betas = data_item['shape'].to(device)
+      trans = (data_item['trans']-torch.tensor([0.0,0.0,0.075])).to(device)
+      skeleton = data_item['skeleton']
+      break
+    mesh, joint = test_smpl(device,pose,betas,trans)
+    print(mesh.shape,joint.shape)
 
 
+    for batch_idx in range(0, mesh.size(0)):
+      # # 假设您有一个批次的mesh和joint
+      # batch_idx = 0  # 选择要显示的批次索引
 
-  # # 假设您有一个批次的mesh和joint
-  # batch_idx = 0  # 选择要显示的批次索引
+      # 可视化mesh
+      mesh_data = mesh[batch_idx].cpu().numpy()
 
-  # # 可视化mesh
-  # mesh_data = mesh[batch_idx].cpu().numpy()
-  # fig = plt.figure()
-  # ax = fig.add_subplot(111, projection='3d')
-  # ax.scatter(mesh_data[:, 0], mesh_data[:, 1], mesh_data[:, 2])
-  # ax.set_title('Mesh Visualization')
-  # plt.show()
+      # 可视化joint
+      joint_data = joint[batch_idx].cpu().numpy()
+      # visualize_joints(skeleton[batch_idx].reshape(24,3),joint_data)
+      # visualize_mesh(skeleton[batch_idx].reshape(24,3)-np.array([0.0, -0.25, 0.0375]),joint_data)
 
-  # # 可视化joint
-  # joint_data = joint[batch_idx].cpu().numpy()
-  # fig = plt.figure()
-  # ax = fig.add_subplot(111, projection='3d')
-  # ax.scatter(joint_data[:, 0], joint_data[:, 1], joint_data[:, 2])
-  # ax.set_title('Joint Visualization')
-  # plt.show()
+      # visualize_mesh(skeleton[batch_idx].reshape(24,3),joint_data-np.array([ -0.01413382 ,-0.21930961,  0.0170392]))
+
+
+      division = joint_data-(skeleton[batch_idx].reshape(24,3)-torch.tensor([0.0,0.0,0.075])).numpy()
+      # # trans_shift = trans[batch_idx].cpu().numpy()
+      print(division)
+      # # print(trans_shift-np.array([0.6,1.2,0.1]))
+      print(f"division mean: {np.mean(division, axis=0)}")

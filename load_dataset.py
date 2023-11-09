@@ -90,7 +90,7 @@ class SkeletonDataset(Dataset):
 
 
 if __name__ == "__main__":
-    dataset = SkeletonDataset(r'dataset\train',True)
+    dataset = SkeletonDataset(r'dataset\train',False)
     import cv2
     import numpy as np
     # for i in range(dataset.__len__()):
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     #         break
 
     batch_size = 8
-    data_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+    data_loader = torch.utils.data.DataLoader(dataset, batch_size=None, shuffle=False)
 
     # 遍历 data_loader 来获取批次的数据
     for batch in data_loader:
@@ -112,12 +112,12 @@ if __name__ == "__main__":
         trans = batch['trans']
         print(skeleton.shape)
         print(image.shape)
-        print(gender.shape)
+        # print(gender.shape)
         print(trans.shape)
 
         print(skeleton.dtype)
         print(image.dtype)
-        print(gender.dtype)
+        # print(gender.dtype)
         print(trans.dtype)
 
         # for image_tensor in batch['image']:
