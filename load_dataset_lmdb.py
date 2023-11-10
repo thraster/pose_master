@@ -40,7 +40,7 @@ class SkeletonDatasetLMDB:
         '''
 
         # 1. image预处理 归一化到0~1范围内 从int8转为uint8再转为float32
-        data['image'] = cv2.resize(data['image'].numpy().astype(np.uint8), (224, 224))
+        data['image'] = cv2.resize((data['image']* 2).numpy().astype(np.uint8), (224, 224))
         # 归一化到0~1
         data['image'] = torch.tensor(data['image'], dtype=torch.float32)
         data['image'] = data['image'] / 255.0
@@ -68,15 +68,25 @@ class SkeletonDatasetLMDB:
 
 if __name__ == "__main__":
     # 使用示例
-    lmdb_path = r'D:\workspace\python_ws\pose-master\dataset\train_lmdb_new'  # 替换为LMDB数据库的路径
+    lmdb_path = r'D:\workspace\python_ws\pose-master\dataset\test_lmdb_gt'  # 替换为LMDB数据库的路径
     lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=True)
     # lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=None)
     # 获取数据集的长度
+    batch_size = 8
     print("Dataset length:", len(lmdb_dataset))
-
-    # 加载数据
-    index = 0  # 选择要加载的数据项的索引
-    data_item = lmdb_dataset[index]
+    train_loader = torch.utils.data.DataLoader(lmdb_dataset,
+                                                batch_size=batch_size, 
+                                               shuffle=True,
+                                               num_workers = 0, 
+                                               pin_memory=True)
+    
+    for i,data in enumerate(train_loader):
+        print(data.keys())
+        print(data['image'].shape)
+        break
+    
+    
+  
 
 
     # for index in range(0, len(lmdb_dataset)):
@@ -84,7 +94,7 @@ if __name__ == "__main__":
     #     # print("Loaded data:", data_item.keys())
     #     print(index,end='\r')
     #     # print(data_item['image'])
-    #     contains_negative = torch.any(data_item['image'] < 0)
+    #     contains_negative = torch.any(data_item['image'] > 200)
 
     #     if contains_negative:
     #         print("The tensor contains negative values.")
@@ -93,12 +103,16 @@ if __name__ == "__main__":
     #     else:
 
     #         pass
-    for key, value in data_item.items():
 
-        try:
-            shape = value.shape
-            dtype = value.dtype
-            print(f"Key: {key}, Shape: {shape}, Dtype: {dtype}")
-        except:
-            print(f"Key: {key}, {type(value)}")
-            pass
+      # 加载数据
+    # index = 0  # 选择要加载的数据项的索引
+    # data_item = lmdb_dataset[index]
+    # for key, value in data_item.items():
+
+    #     try:
+    #         shape = value.shape
+    #         dtype = value.dtype
+    #         print(f"Key: {key}, Shape: {shape}, Dtype: {dtype}")
+    #     except:
+    #         print(f"Key: {key}, {type(value)}")
+    #         pass

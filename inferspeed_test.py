@@ -10,8 +10,8 @@ input_data = torch.randn(batch_size, 1, 224, 224)
 gender = torch.randint(2, (batch_size, 1))
 device = 'cpu'
 # 创建模型实例
-model1 = mobilenet(device=device).to(device)
-model2 = posenet(device=device).to(device)
+model1 = mobilenet_itersmpl(device=device).to(device)
+model2 = posenet_itersmpl(device=device).to(device)
 
 def inference_time(model, input_data, gender, num_iterations=100, device = 'cpu'):
     total_time = 0
@@ -32,16 +32,20 @@ print(f"MobileNet Inference avg Time: {time1} seconds, on [{device}]")
 print(f"PoseNet Inference avg Time: {time2} seconds, on [{device}]")
 
 '''
-MobileNet_itersmpl Inference avg Time: 0.7484717845916748 seconds, on [cpu]
-PoseNet_itersmpl Inference avg Time: 0.5922966480255127 seconds, on [cpu]
-MobileNet_itersmpl Inference avg Time: 0.6717566728591919 seconds, on [cuda]
-PoseNet_itersmpl Inference avg Time: 0.4732471227645874 seconds, on [cuda]
+infering, model = mobilenetv2_smpl, for 128 iters
+infering, model = resnet+smpl, for 128 iters
+MobileNet_itersmpl Inference avg Time: 0.5457477737218142 seconds, on [cpu]
+PoseNet_itersmpl Inference avg Time: 0.44180510006845 seconds, on [cpu]
+MobileNet_itersmpl Inference avg Time: 0.2886335998773575 seconds, on [cuda]
+PoseNet_itersmpl Inference avg Time: 0.2625382486730814 seconds, on [cuda]
 
 
 # 多跑点iter
-MobileNet Inference avg Time: 0.6836470842361451 seconds, on [cpu]
-PoseNet Inference avg Time: 0.570149278640747 seconds, on [cpu]
-MobileNet Inference avg Time: 0.35993931293487547 seconds, on [cuda]
-PoseNet Inference avg Time: 0.16239492893218993 seconds, on [cuda]
+infering, model = mobilenetv2_smpl, for 128 iters
+infering, model = resnet18_smpl, for 128 iters
+MobileNet Inference avg Time: 0.5178092755377293 seconds, on [cpu]
+PoseNet Inference avg Time: 0.42258534394204617 seconds, on [cpu]
+MobileNet Inference avg Time: 0.13631493411958218 seconds, on [cuda]
+PoseNet Inference avg Time: 0.10320301167666912 seconds, on [cuda]
 
 '''

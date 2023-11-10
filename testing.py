@@ -99,19 +99,9 @@ def test_model_smpl(model, test_loader, device, criterion):
             genders = data['gender'].to(device)
             transs = data['trans'].to(device)
 
-            # # 将输入和标签移动到GPU上（如果可用）
-            # images = images.to(device)
-            # skeletons = skeletons.to(device)
-            # genders = genders.to(device)
-            # transs = transs.to(device)
-
-            # start_time = time.time()
             # 前向传播
             _, outputs = model(images, genders)
-            # forward_time = time.time()
-            # print(f"forward代码执行时间：{forward_time-start_time} 秒")
-            # 计算损失
-            
+
             loss = criterion(outputs, skeletons)
             # print(loss)
 

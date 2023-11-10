@@ -395,14 +395,14 @@ if __name__ == '__main__':
     module_location = r'D:\workspace\python_ws\pose-master'
     sys.path.append(module_location)
     from load_dataset_lmdb import SkeletonDatasetLMDB
-    lmdb_path = r'D:\workspace\python_ws\pose-master\dataset\lmdb_data_test'  # 替换为LMDB数据库的路径
+    lmdb_path = r'D:\workspace\python_ws\pose-master\dataset\test_lmdb_gt'  # 替换为LMDB数据库的路径
     lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=True)
     # lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=None)
     # 获取数据集的长度
     print("Dataset length:", len(lmdb_dataset))
 
     # 加载数据
-    test_loader = torch.utils.data.DataLoader(lmdb_dataset, batch_size=4, shuffle=False,num_workers = 0)
+    test_loader = torch.utils.data.DataLoader(lmdb_dataset, batch_size=64, shuffle=True,num_workers = 0)
 
     if torch.cuda.is_available():
       device = torch.device('cuda')
@@ -424,7 +424,8 @@ if __name__ == '__main__':
     for data_item in test_loader:
       pose = data_item['pose'].to(device)
       betas = data_item['shape'].to(device)
-      trans = (data_item['trans']-torch.tensor([0.0,0.0,0.075])).to(device)
+      # trans = (data_item['trans']-torch.tensor([0.0,0.0,0.075])).to(device)
+      trans = (data_item['trans']).to(device)
       skeleton = data_item['skeleton']
       break
     mesh, joint = test_smpl(device,pose,betas,trans)
@@ -446,8 +447,8 @@ if __name__ == '__main__':
       # visualize_mesh(skeleton[batch_idx].reshape(24,3),joint_data-np.array([ -0.01413382 ,-0.21930961,  0.0170392]))
 
 
-      division = joint_data-(skeleton[batch_idx].reshape(24,3)-torch.tensor([0.0,0.0,0.075])).numpy()
-      # # trans_shift = trans[batch_idx].cpu().numpy()
-      print(division)
-      # # print(trans_shift-np.array([0.6,1.2,0.1]))
+      division = joint_data-(skeleton[batch_idx].reshape(24,3)).numpy()
+      # # # trans_shift = trans[batch_idx].cpu().numpy()
+      # print(division)
+      # # # print(trans_shift-np.array([0.6,1.2,0.1]))
       print(f"division mean: {np.mean(division, axis=0)}")

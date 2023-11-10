@@ -57,7 +57,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
     # is_nan = False
     # 定义损失函数和优化器
     criterion = nn.MSELoss() # MSELoss = (1/n) * Σ(yᵢ - ȳ)²
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
     # optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     train_data_batchs = len(train_loader)
 
@@ -79,7 +79,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         time_epoch = 0.0
 
         # 1.训练
-        for i, data in enumerate(train_loader, 0):
+        for i, data in enumerate(train_loader):
             
             start_time = time.time()
             # data.keys() = ['skeleton', 'image', 'gender', 'trans']
@@ -94,7 +94,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
             skeletons = skeletons.to(device)
             genders = genders.to(device)
             transs = transs.to(device)
-
+            # print(images.shape)
             # 梯度清零
             optimizer.zero_grad()
 
@@ -110,7 +110,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
             # break
             loss.backward()
             optimizer.step()
-
+            # break
             # 打印统计信息
             running_loss += loss.item()
             
@@ -183,45 +183,17 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
 
 # 用法示例
 if __name__ == "__main__":
-
-    # from load_dataset import SkeletonDataset
-    # from load_dataset_hdf5 import SkeletonDatasetHDF5
-    # from load_dataset_mat import SkeletonDatasetMAT
     from load_dataset_lmdb import SkeletonDatasetLMDB
-    # import time
+ 
 
-    # wait_time = 7200  # 等待1小时，可以根据需要设置等待时间
-
-    # print("开始等待...")
-    # time.sleep(wait_time)  # 暂停程序执行，等待指定的时间
-    # print("等待结束，继续执行...")
-
-    # train_data = SkeletonDataset(r'dataset\train',True)
-    # test_data = SkeletonDataset(r'dataset\test',True)
-
-    # train_data = SkeletonDatasetMAT(r'F:\pose_master_dataset_mat\train')
-    # test_data = SkeletonDatasetMAT(r'F:\pose_master_dataset_mat\test')
-
-    train_data = SkeletonDatasetLMDB(r'dataset\train_lmdb_new', transform = True)
-    test_data = SkeletonDatasetLMDB(r'dataset\test_lmdb_new',  transform = True)
+    train_data = SkeletonDatasetLMDB(r'dataset\train_lmdb_gt', transform = True)
+    test_data = SkeletonDatasetLMDB(r'dataset\test_lmdb_gt',  transform = True)
 
 
-    # train_data = SkeletonDataset(r'F:\pose_master_dataset\train')
-    # test_data = SkeletonDataset(r'F:\pose_master_dataset\test')
-
-
-    # for i in range(dataset.__len__()):
-    #     sample = dataset[i]
-
-    #     print(i, sample['skeleton'], sample['image'])
-    #     if i >= 4:
-    #         break
-
-    batch_size = 64 # =64时,forward一次1.8s
+    batch_size = 64
 
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
 
-    train(train_loader = test_loader, test_loader = test_loader, num_epochs=401, model=mobilenet,checkpoint_path = None)
-
-    train(train_loader = test_loader, test_loader = test_loader, num_epochs=401, model=posenet,checkpoint_path = None)
+    train(train_loader = train_loader , test_loader = test_loader, num_epochs=101, model=posenet,checkpoint_path = None)
+    train(train_loader = train_loader , test_loader = test_loader, num_epochs=101, model=mobilenet,checkpoint_path = None)
