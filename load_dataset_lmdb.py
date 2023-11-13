@@ -82,7 +82,18 @@ if __name__ == "__main__":
     
     for i,data in enumerate(train_loader):
         print(data.keys())
-        print(data['image'].shape)
+        # print(data['trans'])
+        # print((data['skeleton'].reshape(-1,24,3))[:,0])
+        # print(data['trans'] - (data['skeleton'].reshape(-1,24,3))[:,0])
+        skeleton_data = data['skeleton'].reshape(-1, 24, 3)
+        # 从整个张量中减去第二个维度上的第一列
+        skeleton = skeleton_data - skeleton_data[:, 0:1, :]
+
+        # 现在，result 的形状是 (batch_size, 24, 3)，你可以继续进行后续计算
+        print(skeleton)
+        # skeletons = data['skeleton'].reshape(-1,24,3)
+        # skeletons = skeletons - skeletons[:,0]
+        # print(skeletons)
         break
     
     

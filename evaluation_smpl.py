@@ -533,8 +533,8 @@ if __name__ == "__main__":
 
     # 3. 测你们全部
     joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=posenet,
-                                        checkpoint_path = r'D:\workspace\python_ws\pose-master\checkpoints\exp2_nov10\best_resnet18_smpl.pth',
+                                        checkpoint_path = r'D:\workspace\python_ws\pose-master\checkpoints\best_resnet18_smpl.pth',
                                         test_loader = test_loader, 
                                         device = device,
-                                        isbatch = False )
+                                        isbatch = True )
     
