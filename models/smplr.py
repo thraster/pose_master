@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+from torchsummary import summary
 class MLPWithBranch(nn.Module):
     def __init__(self, input_sizes, output_size):
         '''
@@ -9,7 +9,7 @@ class MLPWithBranch(nn.Module):
         '''
         super(MLPWithBranch, self).__init__()
         # 定义输入大小和输出大小
-        self.input_size = [input_sizes, 1024, 512]
+        self.input_size = [input_sizes, 1024, 512, 512]
         self.input_sizes_main = [512, 256, 256, output_size]
         self.input_sizes_branch = [512, 256, output_size]
         self.output_size = output_size
@@ -108,3 +108,4 @@ if __name__ == '__main__':
     model = SMLPR_MLP()
     print(model.name)
     print(model)
+    summary(model,(72,))

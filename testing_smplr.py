@@ -108,18 +108,18 @@ def test_model(model, test_loader, device, criterion):
 
             # 将输入和标签移动到GPU上（如果可用）
             skeleton_data = data['skeleton'].reshape(-1,24,3)
-            skeletons = (skeleton_data - skeleton_data[:, 0:1, :]).reshape(-1,72)
-            genders = data['gender'].to(torch.float32)
+            skeletons = (skeleton_data - skeleton_data[:, 0:1, :]).reshape(-1,72).to(device)
+            # genders = data['gender'].to(torch.float32)
             shape_gt = data['shape'].to(device)
             pose_gt = data['pose'].to(device)
 
 
-            inputs = torch.cat((skeletons,genders), dim=1).to(device) #gender连接在第一位
+            # inputs = torch.cat((skeletons,genders), dim=1).to(device) #gender连接在第一位
 
             # 根据gender的取值将x分成x_f和x_m
  
 
-            shape, pose = model(inputs)
+            shape, pose = model(skeletons)
 
             shape_loss = criterion(shape, shape_gt)
             pose_loss = criterion(pose, pose_gt)
