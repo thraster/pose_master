@@ -85,16 +85,17 @@ def train(train_loader, test_loader,model = SMLPR_MLP, num_epochs=10,  checkpoin
             # data.keys() = ['skeleton', 'image', 'gender', 'trans']
 
             skeleton_data = data['skeleton'].reshape(-1,24,3)
-            skeletons = (skeleton_data - skeleton_data[:, 0:1, :]).reshape(-1,72)
-            genders = data['gender'].to(torch.float32)
+            skeletons = (skeleton_data - skeleton_data[:, 0:1, :]).reshape(-1,72).to(device)
+            images = data['image']
+            # genders = data['gender'].to(torch.float32)
             shape_gt = data['shape'].to(device)
             pose_gt = data['pose'].to(device)
 
 
-            inputs = torch.cat((skeletons,genders), dim=1).to(device) #gender连接在第一位
+            # inputs = torch.cat((skeletons,genders), dim=1).to(device) #gender连接在第一位
 
 
-            shape, pose= model(inputs)
+            shape, pose= model(skeletons)
 
 
 
@@ -114,8 +115,8 @@ def train(train_loader, test_loader,model = SMLPR_MLP, num_epochs=10,  checkpoin
 
             # break
             # 打印统计信息
-
-
+            running_loss_shape += shape_loss.item()
+            running_loss_pose += pose_loss.item()
 
             if i*batch_size % 1024 == 0:  # 每训练过1024条数据打印一次, 判断是否保存, 集成停止功能
                 
@@ -161,7 +162,7 @@ def train(train_loader, test_loader,model = SMLPR_MLP, num_epochs=10,  checkpoin
         'net' : model.name,
         # 可以保存其他超参数信息
         }
-        torch.save(checkpoint, f'checkpoints/last_{model.name}.pth')
+        torch.save(checkpoint, f'checkpoints/last_{model.name}_f.pth')
         print(f"last checkpoint saved!")
         print(f"1. Test shape loss: {test_loss_shape}")
         print(f"2. Test pose loss: {test_loss_pose}")
@@ -169,7 +170,7 @@ def train(train_loader, test_loader,model = SMLPR_MLP, num_epochs=10,  checkpoin
         
         # 每50个epoch储存一下？
         if epoch%50 == 0:
-            torch.save(checkpoint, f'checkpoints/{model.name}_epoch{epoch}.pth')
+            torch.save(checkpoint, f'checkpoints/f{model.name}_epoch{epoch}_f.pth')
         
         if epoch == 0:
             min_loss = test_loss_shape + test_loss_pose # 记录初值作为min_loss
@@ -177,7 +178,7 @@ def train(train_loader, test_loader,model = SMLPR_MLP, num_epochs=10,  checkpoin
         elif test_loss_shape + test_loss_pose < min_loss:
             # flag = 0
             min_loss = test_loss_shape + test_loss_pose
-            torch.save(checkpoint, f'checkpoints/best_{model.name}.pth')
+            torch.save(checkpoint, f'checkpoints/best_{model.name}_f.pth')
             print(f"best checkpoint saved!")
             print(f"1. Test shape loss: {test_loss_shape}")
             print(f"2. Test pose loss: {test_loss_pose}")
@@ -199,8 +200,8 @@ if __name__ == "__main__":
     from load_dataset_lmdb import SkeletonDatasetLMDB
  
     torch.autograd.set_detect_anomaly(True)
-    train_data = SkeletonDatasetLMDB(r'dataset\train_lmdb_gt', transform = True)
-    test_data = SkeletonDatasetLMDB(r'dataset\test_lmdb_gt',  transform = True)
+    train_data = SkeletonDatasetLMDB(r'D:\workspace\python_ws\pose-master\dataset\train_lmdb_gt_f', transform = True)
+    test_data = SkeletonDatasetLMDB(r'D:\workspace\python_ws\pose-master\dataset\test_lmdb_gt_f',  transform = True)
 
 
     batch_size = 64

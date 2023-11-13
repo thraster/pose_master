@@ -9,7 +9,7 @@ class MLPWithBranch(nn.Module):
         '''
         super(MLPWithBranch, self).__init__()
         # 定义输入大小和输出大小
-        self.input_size = [input_sizes, 1024, 1024, 512, 512, 512]
+        self.input_size = [input_sizes, 1024, 512]
         self.input_sizes_main = [512, 256, 256, output_size]
         self.input_sizes_branch = [512, 256, output_size]
         self.output_size = output_size
@@ -79,8 +79,8 @@ class MLPWithBranch(nn.Module):
 class SMLPR_MLP(nn.Module):
     def __init__(self, device = 'cuda'):
         super(SMLPR_MLP, self).__init__()
-        self.shape_encoder = MLPWithBranch(73, 10).to(device)
-        self.pose_encoder = MLPWithBranch(73, 72).to(device)
+        self.shape_encoder = MLPWithBranch(72, 10).to(device)
+        self.pose_encoder = MLPWithBranch(72, 72).to(device)
         self.name = 'SMLPR_MLP_layer'
 
     def forward(self, x):
