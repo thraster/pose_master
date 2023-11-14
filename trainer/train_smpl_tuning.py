@@ -225,4 +225,4 @@ if __name__ == "__main__":
     # train(train_loader = train_loader , test_loader = test_loader, num_epochs=401, model=posenet,checkpoint_path = 'pose_master/checkpoints/last_resnet18_smpl.pth')
     
     train(train_loader = train_loader , test_loader = test_loader, num_epochs=20, model=pretrained_resnet18,checkpoint_path = None,loss = 'l1')
-    train(train_loader = train_loader , test_loader = test_loader, num_epochs=20, model=pretrained_resnet18,checkpoint_path = None,loss = 'l2')
+    # train(train_loader = train_loader , test_loader = test_loader, num_epochs=20, model=pretrained_resnet18,checkpoint_path = None,loss = 'l2')

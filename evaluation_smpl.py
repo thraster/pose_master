@@ -424,7 +424,7 @@ def eval_smpl(model, checkpoint_path, test_loader, device, isbatch=True):
             # break
            
             start_time = time.time()
-            # 前向传播
+            前向传播
             if model.name == 'pretrained_mobilenetv2_smpl' or 'mobilenetv2_with_mlp_refine':
                 _, mesh, joints = model(images, genders)
             else:
@@ -553,12 +553,16 @@ if __name__ == "__main__":
     #                                     device = device,
     #                                     isbatch = False )
     
-    joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=pretrained_mobilenet,
-                                        checkpoint_path = '/root/pose_master/my_checkpoints/best_pretrained_mobilenetv2_smpl.pth',
-                                        test_loader = test_loader, 
-                                        device = device,
-                                        isbatch = False )
-    
+    # joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=pretrained_resnet18,
+    #                                     checkpoint_path = '/root/pose_master/checkpoint_folder/loss_choose/best_pretrained_resnet18_smpl(256)0.04439585283398628.pth',
+    #                                     test_loader = test_loader, 
+    #                                     device = device,
+    #                                     isbatch = False )
+    # joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=pretrained_resnet18,
+    #                                     checkpoint_path = '/root/pose_master/checkpoint_folder/loss_choose/best_pretrained_resnet18_smpl(256)l2.pth',
+    #                                     test_loader = test_loader, 
+    #                                     device = device,
+    #                                     isbatch = False )
     # joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=mobile_with_mlp,
     #                                     checkpoint_path = '/root/pose_master/my_checkpoints/exp2/best_mobienetv2_with_mlp_refine.pth',
     #                                     test_loader = test_loader, 

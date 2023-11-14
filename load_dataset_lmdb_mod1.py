@@ -106,28 +106,28 @@ def calculate_dataset_statistics(dataset):
 
 if __name__ == "__main__":
     # 使用示例
-    lmdb_path = '/root/pose_master/dataset/test_imdb_gt'  # 替换为LMDB数据库的路径
+    lmdb_path = '/root/pose_master/dataset/train_lmdb_gt'  # 替换为LMDB数据库的路径
     lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=True)
     # lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=None)
     # 获取数据集的长度
-#     batch_size = 8
-#     print("Dataset length:", len(lmdb_dataset))
-#     train_loader = torch.utils.data.DataLoader(lmdb_dataset,
-#                                                 batch_size=batch_size, 
-#                                                shuffle=True,
-#                                                num_workers = 0, 
-#                                                pin_memory=True)
+    batch_size = 8
+    print("Dataset length:", len(lmdb_dataset))
+    # train_loader = torch.utils.data.DataLoader(lmdb_dataset,
+    #                                             batch_size=batch_size, 
+    #                                            shuffle=True,
+    #                                            num_workers = 0, 
+    #                                            pin_memory=True)
     
-#     for i,data in enumerate(train_loader):
-#         print(data.keys())
-#         print(data['image'].shape)
-#         break
+    # for i,data in enumerate(train_loader):
+    #     print(data.keys())
+    #     print(data['image'].shape)
+    #     break
     
     
-    min_shape, max_shape, min_pose, max_pose, min_trans, max_trans = calculate_dataset_statistics(lmdb_dataset)
-    print("Min/Max Shape:", min_shape, max_shape)
-    print("Min/Max Pose:", min_pose, max_pose)
-    print("Min/Max Trans:", min_trans, max_trans)
+    # min_shape, max_shape, min_pose, max_pose, min_trans, max_trans = calculate_dataset_statistics(lmdb_dataset)
+    # print("Min/Max Shape:", min_shape, max_shape)
+    # print("Min/Max Pose:", min_pose, max_pose)
+    # print("Min/Max Trans:", min_trans, max_trans)
 
     '''
     1. test_lmdb:
