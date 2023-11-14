@@ -1,0 +1,12 @@
+config==0.5.1
+h5py==3.10.0
+matplotlib==3.7.2
+mxnet==1.9.1
+numpy==1.23.0
+opencv_python==4.6.0.66
+Pillow
+pyrender==0.1.45
+scipy
+thop==0.1.1.post2209072238
+tqdm==4.66.1
+trimesh==3.23.5

@@ -7,6 +7,13 @@ import lmdb
 import sys
 import pickle
 
+# define the.
+min_shape = -3
+max_shape = 3
+min_pose = -2.8452
+max_pose = 4.1845
+min_trans = -0.0241
+max_trans = 1.5980
 
 class SkeletonDatasetLMDB:
     def __init__(self, lmdb_path, transform = True):
@@ -52,6 +59,7 @@ class SkeletonDatasetLMDB:
         data['skeleton'] = data['skeleton'].reshape(72)
         
         # 3. trans预处理 从float64转为float32
+        data['trans'] = (data['trans'] - min_trans) / (max_trans - min_trans)
         data['trans'] =  data['trans'].to(dtype=torch.float32)
         data['trans'] =  data['trans'].reshape(3)
 
@@ -61,9 +69,11 @@ class SkeletonDatasetLMDB:
         data['gender'] = torch.tensor(data['gender'], dtype = torch.uint8).unsqueeze(0)
         
         # 5. shape, pose的转格式
+        data['shape'] = (data['shape'] - min_shape) / (max_shape - min_shape)
+        data['pose'] = (data['pose'] - min_pose) / (max_pose - min_pose)
         data['shape'] = data['shape'].to(dtype=torch.float32)
         data['pose'] = data['pose'].to(dtype=torch.float32)
-
+        
         return data
 def calculate_dataset_statistics(dataset):
     loader = torch.utils.data.DataLoader(dataset, batch_size=len(dataset), shuffle=False)
@@ -97,7 +107,7 @@ def calculate_dataset_statistics(dataset):
 if __name__ == "__main__":
     # 使用示例
     lmdb_path = '/root/pose_master/dataset/test_imdb_gt'  # 替换为LMDB数据库的路径
-    lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=False)
+    lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=True)
     # lmdb_dataset = SkeletonDatasetLMDB(lmdb_path,transform=None)
     # 获取数据集的长度
 #     batch_size = 8
@@ -134,7 +144,7 @@ if __name__ == "__main__":
         Min/Max Trans: -0.0241~1.5980
     '''
     
-    
+
     
     # for index in range(0, len(lmdb_dataset)):
     #     data_item = lmdb_dataset.__getitem__(index)
@@ -163,3 +173,4 @@ if __name__ == "__main__":
     #     except:
     #         print(f"Key: {key}, {type(value)}")
     #         pass
+    

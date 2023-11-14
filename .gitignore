@@ -1,5 +1,10 @@
 dataset
 checkpoints
-models/posenet_res.py
+checkpoint_folder
+my_checkpoints
+models
 data.h5
 log
+predict_folder
+trainer/log
+trainer/tf-logs

@@ -18,10 +18,18 @@ from models.resnet50_pretrained import pretrained_resnet50
 from models.mobilenet_pretrained import pretrained_mobilenet
 import datetime
 from torch.utils.tensorboard import SummaryWriter
-from testing import test_model_smpl
+from testing import test_model_smpl_exp1
+
+# define the.
+min_shape = -3
+max_shape = 3
+min_pose = -2.8452
+max_pose = 4.1845
+min_trans = -0.0241
+max_trans = 1.5980
 
 
-def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_path = None):
+def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_path = None, stage = 1):
     '''
     训练模型,默认选择resnet作为被训练的模型
     train_loader:训练集的dataloader实例
@@ -32,15 +40,25 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
     test_loss_list = []
     time_epoch_list = []
     # 初始化模型
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if 1:
-        model = model(device = device).to(device)  # 根据实际情况调整模型初始化方式
+    
+        
+    if stage == 1:
+        model = model(device = device, smpl = False).to(device)  # 根据实际情况调整模型初始化方式
+        optimizer = optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.005)
+        criterion = nn.L1Loss()
+        model.name = model.name+'_stage1'
+        
+    elif stage == 2:
+        model = model(device = device, smpl = True).to(device)  # 根据实际情况调整模型初始化方式
+        optimizer = optim.Adam(model.parameters(), lr=0.00002, weight_decay=0.0005)
+        criterion = nn.MSELoss() # MSELoss = (1/n) * Σ(yᵢ - ȳ)²
+        model.name = model.name+'_stage2'
+        
+    else:
+        print("choose stage 1 or 2!!!")
 
-    # 初始化male和female的smpl模型
-    # smpl_m = SMPLModel(device=device,model_path=r'smpl\basicmodel_m_lbs_10_207_0_v1.0.0.pkl')
-    # smpl_f = SMPLModel(device=device,model_path=r'smpl\basicModel_f_lbs_10_207_0_v1.0.0.pkl')
-
+        
     if checkpoint_path != None:
         checkpoint = torch.load(checkpoint_path)
         total_epoch = checkpoint['epochs']
@@ -58,8 +76,10 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
     print('model initialized on', device)
     # is_nan = False
     # 定义损失函数和优化器
-    criterion = nn.MSELoss() # MSELoss = (1/n) * Σ(yᵢ - ȳ)²
-    optimizer = optim.Adam(model.parameters(), lr=0.00002, weight_decay=0.0005)
+    
+        
+        
+    
     # optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     train_data_batchs = len(train_loader)
 
@@ -91,26 +111,28 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
             start_time = time.time()
             # data.keys() = ['skeleton', 'image', 'gender', 'trans']
 
-            images = data['image']
-            skeletons = data['skeleton']
-            genders = data['gender']
-            transs = data['trans']
-
-            # 将输入和标签移动到GPU上
-            images = images.to(device)
-            skeletons = skeletons.to(device)
-            genders = genders.to(device)
-            transs = transs.to(device)
-            # print(images.shape)
+            images = data['image'].to(device)
+            skeletons = data['skeleton'].to(device)
+            genders = data['gender'].to(device)
+            
+            transs = data['trans'].to(device)
+            shapes = data['shape'].to(device)
+            poses = data['pose'].to(device)
             # 梯度清零
             optimizer.zero_grad()
 
             # 前向传播
-            _, joints = model(images, genders)
-
-
-            # 默认使用float32数据类型进行训练
-            loss = criterion(joints, skeletons)
+            x, _, joints = model(images, genders)
+            
+            if stage == 1:
+                pred_shapes = (x[:,0:10] - min_shape) / (max_shape - min_shape)
+                pred_poses = (x[:,10:82] - min_pose) / (max_pose - min_pose)
+                pred_trans = (x[:,82:85] - min_trans) / (max_trans - min_trans)
+                
+                loss = criterion(pred_shapes, shapes)+criterion(pred_poses, poses)+criterion(pred_trans, transs)
+                
+            elif stage == 2:
+                loss = criterion(joints, skeletons)
 
             # 反向传播和优化
 
@@ -142,7 +164,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         print(f"一个epoch运行时间：{time_epoch:.6f} 秒")
         time_epoch_list.append(time_epoch)
 
-        test_loss = test_model_smpl(model=model,test_loader=test_loader,device=device,criterion=criterion)
+        test_loss = test_model_smpl_exp1(model=model,test_loader=test_loader,device=device,criterion=criterion, stage = stage)
         
         # 添加标量 loss when test
         writer['loss(test)'].add_scalar(tag="loss(testing) MSEloss/epochs", scalar_value=loss,
@@ -160,12 +182,12 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         'net' : model.name,
         # 可以保存其他超参数信息
         }
-        torch.save(checkpoint, f'/root/pose_master/my_checkpoints/last_{model.name}.pth')
+        torch.save(checkpoint, f'/root/pose_master/my_checkpoints/exp1/last_{model.name}.pth')
         print(f"last checkpoint saved! test loss = {test_loss}")
         
         # 每50个epoch储存一下？
         if epoch%50 == 0:
-            torch.save(checkpoint, f'/root/pose_master/my_checkpoints/{model.name}_epoch{epoch}.pth')
+            torch.save(checkpoint, f'/root/pose_master/my_checkpoints/exp1/{model.name}_epoch{epoch}.pth')
         
         if epoch == 0:
             min_loss = test_loss # 记录初值作为min_loss
@@ -173,7 +195,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         elif test_loss < min_loss:
             # flag = 0
             min_loss = test_loss
-            torch.save(checkpoint, f'/root/pose_master/my_checkpoints/best_{model.name}.pth')
+            torch.save(checkpoint, f'/root/pose_master/my_checkpoints/exp1/best_{model.name}.pth')
             print(f"best checkpoint saved! = {min_loss}")
 
 
@@ -197,7 +219,7 @@ def parse_args():
     # 添加命令行参数
     parser.add_argument('--train_data_path', type=str, default='pose_master/dataset/train_lmdb_gt/', help='Path to the training LMDB dataset')
     parser.add_argument('--test_data_path', type=str, default='pose_master/dataset/test_imdb_gt/', help='Path to the testing LMDB dataset')
-    parser.add_argument('--batch_size', type=int, default=512, help='Batch size for training and testing')
+    parser.add_argument('--batch_size', type=int, default=128, help='Batch size for training and testing')
     parser.add_argument('--num_epochs', type=int, default=10, help='Number of training epochs')
     parser.add_argument('--checkpoint_path', type=str, default=None, help='Path to save the model checkpoints')
 
@@ -206,7 +228,7 @@ def parse_args():
 
 # 用法示例
 if __name__ == "__main__":
-    from load_dataset_lmdb import SkeletonDatasetLMDB
+    from load_dataset_lmdb_mod1 import SkeletonDatasetLMDB
  
 
     args = parse_args()
@@ -218,7 +240,6 @@ if __name__ == "__main__":
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
 
-    # train(train_loader = train_loader , test_loader = test_loader, num_epochs=401, model=posenet,checkpoint_path = 'pose_master/checkpoints/last_resnet18_smpl.pth')
-    # train(train_loader = train_loader , test_loader = test_loader, num_epochs=100, model=pretrained_resnet18,checkpoint_path = '/root/pose_master/checkpoint_folder/last_pretrained_resnet18_smpl(512).pth')
-    train(train_loader = train_loader , test_loader = test_loader, num_epochs=200, model=pretrained_mobilenet,checkpoint_path = '/root/pose_master/my_checkpoints/last_pretrained_mobilenetv2_smpl.pth')
-    # train(train_loader = train_loader , test_loader = test_loader, num_epochs=100, model=pretrained_resnet50,checkpoint_path = None)
+ 
+    train(train_loader = train_loader , test_loader = test_loader, num_epochs=100, model=pretrained_mobilenet,checkpoint_path = None, stage = 1)
+    train(train_loader = train_loader , test_loader = test_loader, num_epochs=100, model=pretrained_mobilenet,checkpoint_path = '/root/pose_master/my_checkpoints/exp1/best_pretrained_mobilenetv2_smpl_stage1.pth', stage = 2)

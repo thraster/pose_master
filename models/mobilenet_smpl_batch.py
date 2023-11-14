@@ -7,7 +7,7 @@ import cv2
 import time
 from torch.nn import Module
 
-module_location = r'D:\workspace\python_ws\pose-master'
+module_location = '/root/pose_master'
 sys.path.append(module_location)
 from smpl.smpl_torch_batch import test_smpl
 from smpl.smpl_torch_batch import SMPLModel
@@ -80,10 +80,10 @@ class MobileNetV2(nn.Module):
         # print(self.device)
         # 初始化对应性别的SMPL模型
         
-        model_path_f = r'D:\workspace\python_ws\pose-master\smpl\basicModel_f_lbs_10_207_0_v1.0.0.pkl'
+        model_path_f = 'pose_master/smpl/basicModel_f_lbs_10_207_0_v1.0.0.pkl'
         self.smpl_f = SMPLModel(device=self.device,model_path=model_path_f).to(device)
 
-        model_path_m = r'D:\workspace\python_ws\pose-master\smpl\basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
+        model_path_m = 'pose_master/smpl/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
         self.smpl_m = SMPLModel(device=self.device,model_path=model_path_m).to(device)
 
     def forward(self, x, genders=None):

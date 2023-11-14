@@ -15,13 +15,13 @@ from models.resnet_smpl_batch import posenet
 from models.mobilenet_smpl_batch import mobilenet
 from models.resnet18_pretrained import pretrained_resnet18
 from models.resnet50_pretrained import pretrained_resnet50
-from models.mobilenet_pretrained import pretrained_mobilenet
+
 import datetime
 from torch.utils.tensorboard import SummaryWriter
 from testing import test_model_smpl
 
 
-def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_path = None):
+def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_path = None, loss = 'l1'):
     '''
     训练模型,默认选择resnet作为被训练的模型
     train_loader:训练集的dataloader实例
@@ -34,8 +34,8 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
     # 初始化模型
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if 1:
-        model = model(device = device).to(device)  # 根据实际情况调整模型初始化方式
+    
+    model = model(device = device).to(device)  # 根据实际情况调整模型初始化方式
 
     # 初始化male和female的smpl模型
     # smpl_m = SMPLModel(device=device,model_path=r'smpl\basicmodel_m_lbs_10_207_0_v1.0.0.pkl')
@@ -58,8 +58,12 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
     print('model initialized on', device)
     # is_nan = False
     # 定义损失函数和优化器
-    criterion = nn.MSELoss() # MSELoss = (1/n) * Σ(yᵢ - ȳ)²
-    optimizer = optim.Adam(model.parameters(), lr=0.00002, weight_decay=0.0005)
+    if loss == 'l2':
+        criterion = nn.MSELoss() # MSELoss = (1/n) * Σ(yᵢ - ȳ)²
+    elif loss == 'l1':
+        criterion = nn.L1Loss()
+        
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
     # optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     train_data_batchs = len(train_loader)
 
@@ -70,8 +74,8 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     # writer = SummaryWriter(log_dir=f'log/{model.name}/exp{current_date}')
     writer = {
-        'loss(train)': SummaryWriter(f"/root/tf-logs/{model.name}/exp{current_date}"), #必须要不同的writer
-        'loss(test)': SummaryWriter(f"/root/tf-logs/{model.name}/exp{current_date}"),
+        'loss(train)': SummaryWriter(f"/root/tf-logs/loss_choose/{model.name}/exp{current_date}"), #必须要不同的writer
+        'loss(test)': SummaryWriter(f"/root/tf-logs/loss_choose/{model.name}/exp{current_date}"),
 
     }
 
@@ -130,7 +134,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
 
 
             # 添加标量 loss while training
-            writer['loss(train)'].add_scalar(tag=f"loss(training) MSEloss/batchs (batch_size ={batch_size})", scalar_value=loss,
+            writer['loss(train)'].add_scalar(tag=f"loss(training) loss/batchs (batch_size ={batch_size})", scalar_value=loss,
                 global_step=epoch * train_data_batchs + i)
             end_time = time.time()
             elapsed_time = end_time - start_time
@@ -145,7 +149,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         test_loss = test_model_smpl(model=model,test_loader=test_loader,device=device,criterion=criterion)
         
         # 添加标量 loss when test
-        writer['loss(test)'].add_scalar(tag="loss(testing) MSEloss/epochs", scalar_value=loss,
+        writer['loss(test)'].add_scalar(tag="loss(testing) loss/epochs", scalar_value=loss,
                 global_step=epoch)
         test_loss_list.append(test_loss)
 
@@ -160,12 +164,12 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         'net' : model.name,
         # 可以保存其他超参数信息
         }
-        torch.save(checkpoint, f'/root/pose_master/my_checkpoints/last_{model.name}.pth')
+        torch.save(checkpoint, f'/root/pose_master/checkpoint_folder/loss_choose/last_{model.name}({batch_size}){loss}.pth')
         print(f"last checkpoint saved! test loss = {test_loss}")
         
         # 每50个epoch储存一下？
         if epoch%50 == 0:
-            torch.save(checkpoint, f'/root/pose_master/my_checkpoints/{model.name}_epoch{epoch}.pth')
+            torch.save(checkpoint, f'/root/pose_master/checkpoint_folder/loss_choose/{model.name}_epoch{epoch}({batch_size}){loss}.pth')
         
         if epoch == 0:
             min_loss = test_loss # 记录初值作为min_loss
@@ -173,7 +177,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
         elif test_loss < min_loss:
             # flag = 0
             min_loss = test_loss
-            torch.save(checkpoint, f'/root/pose_master/my_checkpoints/best_{model.name}.pth')
+            torch.save(checkpoint, f'/root/pose_master/checkpoint_folder/loss_choose/best_{model.name}({batch_size}){loss}.pth')
             print(f"best checkpoint saved! = {min_loss}")
 
 
@@ -188,7 +192,7 @@ def train(train_loader, test_loader, num_epochs=10, model = posenet, checkpoint_
 
     print(f"total time = {total_time}")
     print(f"avg time = {total_time/len(time_epoch_list)}")
-    
+
 
 
 def parse_args():
@@ -197,7 +201,7 @@ def parse_args():
     # 添加命令行参数
     parser.add_argument('--train_data_path', type=str, default='pose_master/dataset/train_lmdb_gt/', help='Path to the training LMDB dataset')
     parser.add_argument('--test_data_path', type=str, default='pose_master/dataset/test_imdb_gt/', help='Path to the testing LMDB dataset')
-    parser.add_argument('--batch_size', type=int, default=512, help='Batch size for training and testing')
+    parser.add_argument('--batch_size', type=int, default=256, help='Batch size for training and testing')
     parser.add_argument('--num_epochs', type=int, default=10, help='Number of training epochs')
     parser.add_argument('--checkpoint_path', type=str, default=None, help='Path to save the model checkpoints')
 
@@ -208,8 +212,8 @@ def parse_args():
 if __name__ == "__main__":
     from load_dataset_lmdb import SkeletonDatasetLMDB
  
-
     args = parse_args()
+    
     test_data = SkeletonDatasetLMDB('/root/pose_master/dataset/test_imdb_gt/',  transform = True)
     train_data = SkeletonDatasetLMDB('/root/pose_master/dataset/train_lmdb_gt/', transform = True)
 
@@ -219,6 +223,6 @@ if __name__ == "__main__":
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
 
     # train(train_loader = train_loader , test_loader = test_loader, num_epochs=401, model=posenet,checkpoint_path = 'pose_master/checkpoints/last_resnet18_smpl.pth')
-    # train(train_loader = train_loader , test_loader = test_loader, num_epochs=100, model=pretrained_resnet18,checkpoint_path = '/root/pose_master/checkpoint_folder/last_pretrained_resnet18_smpl(512).pth')
-    train(train_loader = train_loader , test_loader = test_loader, num_epochs=200, model=pretrained_mobilenet,checkpoint_path = '/root/pose_master/my_checkpoints/last_pretrained_mobilenetv2_smpl.pth')
-    # train(train_loader = train_loader , test_loader = test_loader, num_epochs=100, model=pretrained_resnet50,checkpoint_path = None)
+    
+    train(train_loader = train_loader , test_loader = test_loader, num_epochs=20, model=pretrained_resnet18,checkpoint_path = None,loss = 'l1')
+    train(train_loader = train_loader , test_loader = test_loader, num_epochs=20, model=pretrained_resnet18,checkpoint_path = None,loss = 'l2')

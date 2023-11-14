@@ -7,7 +7,7 @@ import cv2
 import time
 
 # 将模块所在的目录添加到模块搜索路径
-module_location = 'D:\workspace\python_ws\pose-master'  # 将此路径替换为实际的模块所在目录
+module_location = '/root/pose_master' # 将此路径替换为实际的模块所在目录
 sys.path.append(module_location)
 from smpl.smpl_torch import SMPLModel
 
@@ -69,7 +69,7 @@ class ResNet_smpl(nn.Module):
         # 初始化对应性别的SMPL模型
         
         
-        model_path_f = r'smpl\basicModel_f_lbs_10_207_0_v1.0.0.pkl'
+        model_path_f = 'pose_master/smpl/basicModel_f_lbs_10_207_0_v1.0.0.pkl'
         with open(model_path_f, 'rb') as f:
             human_f = pickle.load(f, encoding='latin1')
         self.J_regressor_f = torch.from_numpy(np.array(human_f['J_regressor'].todense())).type(torch.float32).to(device)
@@ -86,7 +86,7 @@ class ResNet_smpl(nn.Module):
             i: self.id_to_col_f[self.kintree_table_f[0, i]]
             for i in range(1, self.kintree_table_f.shape[1])
         }
-        model_path_m = r'smpl\basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
+        model_path_m = 'pose_master/smpl/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
         with open(model_path_m, 'rb') as f:
             human_m = pickle.load(f, encoding='latin1')
         self.J_regressor_m = torch.from_numpy(np.array(human_m['J_regressor'].todense())).type(torch.float32).to(device)
