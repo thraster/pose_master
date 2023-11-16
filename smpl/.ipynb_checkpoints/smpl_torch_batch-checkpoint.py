@@ -38,7 +38,7 @@ class SMPLModel(Module):
     self.weights = torch.from_numpy(params['weights']).type(torch.float32)
     self.posedirs = torch.from_numpy(params['posedirs']).type(torch.float32)
     self.v_template = torch.from_numpy(params['v_template']).type(torch.float32)
-    self.shapedirs = torch.from_numpy(params['shapedirs'].r).type(torch.float32)
+    self.shapedirs = torch.from_numpy(params['shapedirs'].r.copy()).type(torch.float32)
     self.kintree_table = params['kintree_table']
     self.faces = params['f']
     self.device = device if device is not None else torch.device('cpu')

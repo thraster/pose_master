@@ -12,6 +12,7 @@ from models.resnet18_pretrained import pretrained_resnet18
 from models.resnet50_pretrained import pretrained_resnet50
 from models.resnet50_pretrained import pretrained_resnet50
 from models.mobilenet_pretrained import pretrained_mobilenet
+from models.mobilenet_refine_beta import mobilenet_refine_beta
 from models.with_mlp import mobile_with_mlp
 from smpl.smpl_torch_batch import SMPLModel
 
@@ -382,7 +383,7 @@ def eval_smpl(model, checkpoint_path, test_loader, device, isbatch=True):
     print(f"loading checkpoint [{checkpoint_path}] successed!")
     model.load_state_dict(checkpoint['model_state_dict'])
     print(f"epoch = {checkpoint['epochs']}")
-
+    # print(model.name)
     # 将模型设置为评估模式
     model.eval()
     print('evaluating...')
@@ -424,8 +425,9 @@ def eval_smpl(model, checkpoint_path, test_loader, device, isbatch=True):
             # break
            
             start_time = time.time()
-            # 前向传播
+            # print(model.name)
             if model.name == 'pretrained_mobilenetv2_smpl' or 'mobilenetv2_with_mlp_refine':
+
                 _, mesh, joints = model(images, genders)
             else:
                 mesh, joints = model(images, genders)
@@ -480,8 +482,8 @@ def eval_smpl(model, checkpoint_path, test_loader, device, isbatch=True):
                 print(f"evaluating... [{i}/{batch_num}]", end='\r')
                 
         # 输出测试结果
-        MPJPE = totalMPJPE / batch_size/ (i+1)
-        V2V = totalV2V / batch_size/ (i+1)
+        MPJPE = totalMPJPE / batch_size/ batch_num
+        V2V = totalV2V / batch_size/ batch_num
         print(f"Mean Per-Joint Position Error (MPJPE): {MPJPE}")
         print(f"vertex-to-vertex error (v2v): {V2V}")
         print(f"forward代码执行总时间: {total_time*1000} ms")
@@ -496,8 +498,8 @@ if __name__ == "__main__":
     from load_dataset_lmdb import SkeletonDatasetLMDB
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    test_data = SkeletonDatasetLMDB('/root/pose_master/dataset/test_imdb_gt',  transform = True)
-    batch_size = 64
+    test_data = SkeletonDatasetLMDB('/root/pose_master/dataset/test_lmdb_gt',  transform = True)
+    batch_size = 256
     # shuffle要为true才能正常跑
     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
 
@@ -541,11 +543,11 @@ if __name__ == "__main__":
     #     break
 
     # 3. 测你们全部
-    # joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=pretrained_resnet18,
-    #                                     checkpoint_path = '/root/pose_master/my_checkpoints/best_pretrained_resnet18_smpl.pth',
-    #                                     test_loader = test_loader, 
-    #                                     device = device,
-    #                                     isbatch = False )
+    joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=mobilenet_refine_beta,
+                                        checkpoint_path = '/root/pose_master/my_checkpoints/beta/best_pretrained_mobilenetv2_beta_refine.pth',
+                                        test_loader = test_loader, 
+                                        device = device,
+                                        isbatch = False )
     
     # joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=pretrained_resnet50,
     #                                     checkpoint_path = '/root/pose_master/my_checkpoints/best_pretrained_resnet50_smpl.pth',
@@ -553,12 +555,16 @@ if __name__ == "__main__":
     #                                     device = device,
     #                                     isbatch = False )
     
-    joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=pretrained_mobilenet,
-                                        checkpoint_path = '/root/pose_master/my_checkpoints/best_pretrained_mobilenetv2_smpl.pth',
-                                        test_loader = test_loader, 
-                                        device = device,
-                                        isbatch = False )
-    
+    # joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=pretrained_resnet18,
+    #                                     checkpoint_path = '/root/pose_master/checkpoint_folder/loss_choose/best_pretrained_resnet18_smpl(256)0.04439585283398628.pth',
+    #                                     test_loader = test_loader, 
+    #                                     device = device,
+    #                                     isbatch = False )
+    # joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=pretrained_resnet18,
+    #                                     checkpoint_path = '/root/pose_master/checkpoint_folder/loss_choose/best_pretrained_resnet18_smpl(256)l2.pth',
+    #                                     test_loader = test_loader, 
+    #                                     device = device,
+    #                                     isbatch = False )
     # joints_pred, mesh_pred, joints_gt, mesh_gt, MPJPE, V2V = eval_smpl(model=mobile_with_mlp,
     #                                     checkpoint_path = '/root/pose_master/my_checkpoints/exp2/best_mobienetv2_with_mlp_refine.pth',
     #                                     test_loader = test_loader, 

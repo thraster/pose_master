@@ -1,3 +1,4 @@
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,10 +13,12 @@ sys.path.append(module_location)
 
 # from models.posenet_res import posenet
 from models.mobilenet_refine import mobilenet_refine
+from models.mobilenet_refine_beta import mobilenet_refine_beta
 
 import datetime
 from torch.utils.tensorboard import SummaryWriter
-from testing import test_model_refine
+from testing_refine import test_model_refine
+from smpl.smpl_torch_batch import SMPLModel
 
 # define the.
 min_shape = -3
@@ -24,9 +27,6 @@ min_pose = -2.8452
 max_pose = 4.1845
 min_trans = -0.0241
 max_trans = 1.5980
-
-
-
 
 
 def get_parameters(model, predicate):
@@ -65,16 +65,27 @@ def train(train_loader, test_loader, num_epochs=100, model = mobilenet_refine, c
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = model(device).to(device)  # 根据实际情况调整模型初始化方式
-
-    criterion = nn.MSELoss()
+ 
+    model.name = 'Mobilnet_refine_mod2(joint_supervized)'
+    if gender == 'f':
+        model_path_f = '/root/pose_master/smpl/basicModel_f_lbs_10_207_0_v1.0.0.pkl'
+        smpl_forward = SMPLModel(device=device,model_path=model_path_f).to(device)
+    elif gender == 'm':
+        model_path_m = '/root/pose_master/smpl/basicmodel_m_lbs_10_207_0_v1.0.0.pkl'
+        smpl_forward = SMPLModel(device=device,model_path=model_path_m).to(device)
+    
+    
+    
+    criterion = nn.L1Loss()
     
     train_data_batchs = len(train_loader)
     if checkpoint_path != None:
         checkpoint = torch.load(checkpoint_path)
         total_epoch = checkpoint['epochs']
-        min_loss = checkpoint['loss']
-        print(f"loading checkpoint [{checkpoint_path}] successed!")
-        print(f"loss of checkpoint [{checkpoint_path}] will be taken as min_loss!")
+        min_MPJPE = checkpoint['MPJPE']
+        min_V2V = checkpoint['V2V']
+        print(f"loading checkpoint successed!")
+        print(f"loss of checkpoint will be taken as min_loss!")
 
         model.load_state_dict(checkpoint['model_state_dict'])
         print(f"loading state_dict successed!")
@@ -82,6 +93,7 @@ def train(train_loader, test_loader, num_epochs=100, model = mobilenet_refine, c
     else:
         total_epoch = 0
 
+    batch_size = args.batch_size
     print(f"训练数据量: {train_data_batchs * batch_size}条, 分为{train_data_batchs}个batchs")
     print(f"batch size = {batch_size}")
 
@@ -89,8 +101,15 @@ def train(train_loader, test_loader, num_epochs=100, model = mobilenet_refine, c
     current_date = datetime.datetime.now().strftime("%Y-%m-%d")
     # writer = SummaryWriter(log_dir=f'log/{model.name}/exp{current_date}')
     writer = {
-        'loss(train)': SummaryWriter(f"/root/tf-logs/{model.name}/exp{current_date}"), #必须要不同的writer
-        'loss(test)': SummaryWriter(f"/root/tf-logs/{model.name}/exp{current_date}"),
+        'loss(train)': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"), #必须要不同的writer
+        'MPJPE': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"),
+        'V2V': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"),
+        'shape[1]': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"),
+        'pose[1]': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"),
+        'trans[1]': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"),
+        'shape[0]': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"),
+        'pose[0]': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"),
+        'trans[0]': SummaryWriter(f"/root/tf-logs/{model.name}[{gender}]/exp{current_date}"),
     }
 
     base_lr = 4e-5
@@ -110,11 +129,11 @@ def train(train_loader, test_loader, num_epochs=100, model = mobilenet_refine, c
         {'params': get_parameters_bn(model.refinement_stages, 'weight'), 'weight_decay': 0},
         {'params': get_parameters_bn(model.refinement_stages, 'bias'), 'lr': base_lr * 2, 'weight_decay': 0},
     ], lr=base_lr, weight_decay=5e-4)
-
+    
     stop_flag = 0
     for epoch in range(total_epoch, num_epochs):
         
-        print("training...")
+        print(f"training... [{model.name}_{gender}]")
 
         model.train()
         print(f"current epoch: {epoch}")
@@ -124,12 +143,12 @@ def train(train_loader, test_loader, num_epochs=100, model = mobilenet_refine, c
 
         # 1.训练
         for i, data in enumerate(train_loader):
-            
+            # break
             start_time = time.time()
             # data.keys() = ['skeleton', 'image', 'gender', 'trans']
 
             images = data['image'].to(device)
-            # skeletons = data['skeleton'].to(device)
+            skeletons = data['skeleton'].to(device)
             # genders = data['gender'].to(device)
             
             transs = data['trans'].to(device)
@@ -147,24 +166,25 @@ def train(train_loader, test_loader, num_epochs=100, model = mobilenet_refine, c
                 pred_shapes = F.adaptive_avg_pool2d(feature_maps[loss_idx*3], (1, 1)).squeeze()
                 pred_poses = F.adaptive_avg_pool2d(feature_maps[loss_idx*3 + 1], (1, 1)).squeeze()
                 pred_transs = F.adaptive_avg_pool2d(feature_maps[loss_idx*3 + 2], (1, 1)).squeeze()
-
-                pred_shapes = (pred_shapes - min_shape) / (max_shape - min_shape)
-                pred_poses = (pred_poses - min_pose) / (max_pose - min_pose)
-                pred_transs = (pred_transs - min_trans) / (max_trans - min_trans)
+                pred_params = torch.cat((pred_shapes, pred_poses, pred_transs), dim = 1)
+                
+                
+                _, pred_joints = smpl_forward(pose = pred_poses,
+                                            betas = pred_shapes,
+                                            trans= pred_transs
+                                             )
 
                 # print(pred_shapes.shape, pred_poses.shape, pred_transs.shape)
+                # print(pred_joints.shape)
 
-                losses.append(criterion(pred_shapes, shapes)/10)
-                losses.append(criterion(pred_poses, poses))
-                losses.append(criterion(pred_transs, transs))
-            
+                losses.append(criterion(pred_joints.reshape(-1,72), skeletons))
 
             loss = losses[0]
             for loss_idx in range(1, len(losses)):
                 loss += losses[loss_idx]
             # break
             loss.backward()
-
+            # break
             optimizer.step()
             # break
             # 打印统计信息
@@ -179,24 +199,40 @@ def train(train_loader, test_loader, num_epochs=100, model = mobilenet_refine, c
 
 
             # 添加标量 loss while training
-            writer['loss(train)'].add_scalar(tag=f"loss(training) MSEloss/batchs (batch_size ={batch_size})", scalar_value=loss,
+            writer['loss(train)'].add_scalar(tag=f"loss(training) L1Loss/batchs (batch_size ={batch_size})", scalar_value=loss,
                 global_step=epoch * train_data_batchs + i)
             end_time = time.time()
             elapsed_time = end_time - start_time
             time_batchs += elapsed_time
             time_epoch += elapsed_time
 
-            # print(f"一个batch运行时间：{elapsed_time} 秒")
+            
         # 2.测试
         print(f"一个epoch运行时间：{time_epoch:.6f} 秒")
         time_epoch_list.append(time_epoch)
 
-        test_loss = test_model_refine(model=model,test_loader=test_loader,device=device,criterion=criterion, gender = gender)
+        MPJPE, V2V, shape1, shape0, pose1, pose0, trans1, trans0 = test_model_refine(model=model,test_loader=test_loader,device=device, gender = gender)
+        
         # break
         # 添加标量 loss when test
-        writer['loss(test)'].add_scalar(tag="loss(testing) MSEloss/epochs", scalar_value=loss,
+        writer['MPJPE'].add_scalar(tag="MPJPE(test) /mm", scalar_value=MPJPE,
                 global_step=epoch)
-        test_loss_list.append(test_loss)
+        test_loss_list.append(MPJPE)
+        writer['V2V'].add_scalar(tag="V2V(test) /mm", scalar_value=V2V,
+                global_step=epoch)
+        test_loss_list.append(V2V)
+        writer['shape[1]'].add_scalar(tag="shape loss [1]", scalar_value=shape1,
+                global_step=epoch)
+        writer['shape[0]'].add_scalar(tag="shape loss [0]", scalar_value=shape0,
+                global_step=epoch)
+        writer['pose[1]'].add_scalar(tag="pose loss [1]", scalar_value=pose1,
+                global_step=epoch)
+        writer['pose[0]'].add_scalar(tag="pose loss [0]", scalar_value=pose0,
+                global_step=epoch)
+        writer['trans[1]'].add_scalar(tag="trans loss [1]", scalar_value=trans1,
+                global_step=epoch)
+        writer['trans[0]'].add_scalar(tag="trans loss [0]", scalar_value=trans0,
+                global_step=epoch)
 
         # 3.保存checkpoint
         checkpoint = {
@@ -205,44 +241,47 @@ def train(train_loader, test_loader, num_epochs=100, model = mobilenet_refine, c
         'epochs': epoch+1, # 保存当前训练的 epoch 数
         'loss_funtion' : 'MSELoss',
         'optimizer' : 'Adam',
-        'loss' : test_loss,
+        'MPJPE' : MPJPE,
+        'V2V' : V2V,
         'net' : model.name,
         # 可以保存其他超参数信息
         }
         if epoch == 0:
-            min_loss = test_loss # 记录初值作为min_loss
+            min_MPJPE = MPJPE
+            min_V2V = V2V
        
         torch.save(checkpoint, f'/root/pose_master/my_checkpoints/refine/last_{model.name}_{gender}.pth')
-        print(f"last checkpoint saved! test loss = {test_loss}")
-        print(f"min loss = {min_loss}")
+        print(f"last checkpoint saved!")
+        print(f"[min MPJPE and cooresponding V2V = {min_MPJPE}, {min_V2V}]")
         
         # 每50个epoch储存一下？
         if epoch%50 == 0:
             torch.save(checkpoint, f'/root/pose_master/my_checkpoints/refine/{model.name}_{gender}_epoch{epoch}.pth')
         
         
-        if test_loss > min_loss:
+        if MPJPE > min_MPJPE:
             stop_flag += 1
             if stop_flag >= 50:
                 break
                 
-        elif test_loss <= min_loss:
+        else:
             stop_flag = 0
-            min_loss = test_loss
+            min_MPJPE = MPJPE
+            min_V2V = V2V
             torch.save(checkpoint, f'/root/pose_master/my_checkpoints/refine/best_{model.name}_{gender}.pth')
-            print(f"best checkpoint saved! = {min_loss}")
+            print(f"best checkpoint saved! MPJPE = {MPJPE}, V2V = {V2V}")
+    
+    # 关闭所有writer
+    for _, subwriter in writer.items():
+        subwriter.close()
 
-    writer['loss(train)'].close()
-    writer['loss(test)'].close()
     print("训练完成")
-    for i,los in enumerate(test_loss_list):
-        print(f"epoch {i}, test loss = {los}")
     total_time = 0.0
     for i,time_epoch in enumerate(time_epoch_list):
         total_time += time_epoch
 
     print(f"total time = {total_time}")
-    print(f"avg time = {total_time/len(time_epoch_list)}")
+    print(f"avg time = {total_time / len(time_epoch_list)}")
     
 
 
@@ -250,39 +289,41 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Your script description')
 
     # 添加命令行参数
-    parser.add_argument('--train_data_path', type=str, default='pose_master/dataset/train_lmdb_gt/', help='Path to the training LMDB dataset')
-    parser.add_argument('--test_data_path', type=str, default='pose_master/dataset/test_imdb_gt/', help='Path to the testing LMDB dataset')
+    parser.add_argument('--gender', type=str, default='m', help='train model for given gender')
+    parser.add_argument('--train_data_path', type=str, default='/root/pose_master/dataset/train_lmdb_gt_', help='Path to the training LMDB dataset')
+    parser.add_argument('--test_data_path', type=str, default='/root/pose_master/dataset/test_lmdb_gt_', help='Path to the testing LMDB dataset')
     parser.add_argument('--batch_size', type=int, default=256, help='Batch size for training and testing')
-    parser.add_argument('--num_epochs', type=int, default=10, help='Number of training epochs')
-    parser.add_argument('--checkpoint_path', type=str, default=None, help='Path to save the model checkpoints')
+    parser.add_argument('--num_epochs', type=int, default=300, help='Number of training epochs')
+    parser.add_argument('--checkpoint_path', type=str, default='/root/pose_master/my_checkpoints/refine/last_Mobilnet_refine_mod2(joint_supervized)_', help='Path to loading model checkpoints')
 
     args = parser.parse_args()
     return args
 
 # 用法示例
 if __name__ == "__main__":
-    from load_dataset_lmdb_mod1 import SkeletonDatasetLMDB
+    # 使用load_dataset_lmdb, 在testing部分需要用到未作调整的shapes, transs, poses
+    from load_dataset_lmdb import SkeletonDatasetLMDB
  
 
+    args = parse_args()
+    args_dict = vars(args)
+    for arg_key, arg_value in args_dict.items():
+        print(f"{arg_key}: {arg_value}")
+    train_data = SkeletonDatasetLMDB(f'{args.train_data_path+args.gender}/',  transform = True)
+    test_data = SkeletonDatasetLMDB(f'{args.test_data_path+args.gender}/', transform = True)
+    train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=True,num_workers = 0, pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size=args.batch_size, shuffle=True,num_workers = 0, pin_memory=True)
+    
+    train(train_loader = train_loader , test_loader = test_loader, num_epochs=args.num_epochs, model=mobilenet_refine, checkpoint_path = f'{args.checkpoint_path+args.gender}.pth', gender = args.gender)
+
+
+
 #     args = parse_args()
-#     test_data = SkeletonDatasetLMDB('/root/pose_master/dataset/test_lmdb_gt_m/',  transform = True)
-#     train_data = SkeletonDatasetLMDB('/root/pose_master/dataset/train_lmdb_gt_m/', transform = True)
+#     test_data = SkeletonDatasetLMDB('/root/pose_master/dataset/test_lmdb_gt_f/',  transform = True)
+#     train_data = SkeletonDatasetLMDB('/root/pose_master/dataset/train_lmdb_gt_f/', transform = True)
 
 #     batch_size = args.batch_size
 
 #     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
 #     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
-#     train(train_loader = train_loader , test_loader = test_loader, num_epochs=300, model=mobilenet_refine, checkpoint_path = '/root/pose_master/my_checkpoints/refine/best_Mobilnet_refine_m.pth', gender = 'm')
-
-
-
-    args = parse_args()
-    test_data = SkeletonDatasetLMDB('/root/pose_master/dataset/test_lmdb_gt_f/',  transform = True)
-    train_data = SkeletonDatasetLMDB('/root/pose_master/dataset/train_lmdb_gt_f/', transform = True)
-
-    batch_size = args.batch_size
-
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
-    test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True,num_workers = 0, pin_memory=True)
-    train(train_loader = train_loader , test_loader = test_loader, num_epochs=300, model=mobilenet_refine, checkpoint_path = '/root/pose_master/my_checkpoints/refine/best_Mobilnet_refine_f.pth', gender = 'f')
-
+#     train(train_loader = train_loader , test_loader = test_loader, num_epochs=300, model=mobilenet_refine, checkpoint_path = None, gender = 'f')
